@@ -13,12 +13,13 @@ All randomness flows from a single seed in `generator/config.yaml`. Same seed + 
 | `small` | 2025-04-01 → 2026-09-30 (18 mo) | 150 | 200 | 15 | ~12k | ~60k | CI, fast local dev |
 | `medium` | 2023-10-01 → 2026-09-30 (36 mo) | 650 | 1,200 | 60 | ~120k | ~850k–1M | Portfolio numbers, Snowflake demo |
 
-Volumes are targets, not hard requirements; keep within ±25%.
+Volumes are targets, not hard requirements; keep within ±25%. Order and line targets live in `generator/config.yaml` (`target_orders`, `target_order_lines`); the generator calibrates order rates and basket sizes to hit them.
 
 ## Output format
 
 - One parquet file per table per run: `data/raw/erp/<table>/<run_id>.parquet` (backfill writes `run_id=backfill`; each simulated day writes `run_id=<YYYY-MM-DD>`).
-- Every table gets `_extracted_at` (timestamp of the generator run). Mutable tables also carry `updated_at` (business timestamp of the last change).
+- Every table gets `_extracted_at`: a **simulated** extraction time (02:00 the morning after the extraction day), not the wall clock, so output stays byte-identical. Mutable tables also carry `updated_at` (business timestamp of the last change).
+- Opening stock on the start date is recorded as `adjustment` movements with `reference_id = 'OPENING-BALANCE'`.
 - `data/_truth/` holds **ground-truth parameters** the generator used (per-SKU base demand, seasonality profile, true supplier lead-time distributions, planted-issue row IDs). This is **never loaded into the warehouse**. It exists so tests (and the future DS layer) can check that analysis recovers the truth.
 
 ## Reference dimensions
@@ -64,6 +65,18 @@ Volumes are targets, not hard requirements; keep within ±25%.
 
 **Mutations over time:** ~2% of SKUs per month get a cost change (±3–15%, more for FX-exposed origins), and list price follows with a lag of 0–30 days. These changes power the **`snap_products`** snapshot.
 
+### `product_price_history` (added in Phase 1; see DECISIONS.md)
+| column | type | notes |
+|---|---|---|
+| price_change_id | str | `PCH-0000001` … |
+| sku | str | FK products |
+| effective_date | date | date the change took effect |
+| unit_cost_usd | float | cost in effect after the change |
+| list_price_usd | float | list price in effect after the change |
+| changed_at | timestamp | first row per SKU = product setup in the ERP (180 days before launch) |
+
+The ERP's price-change log. dbt uses it for cost **as of order date**, because a snapshot can only capture changes from the first pipeline run onward; `snap_products` still records changes that arrive through `simulate-day`.
+
 ### `customers`
 | column | type | notes |
 |---|---|---|
@@ -89,7 +102,7 @@ Volumes are targets, not hard requirements; keep within ±25%.
 | warehouse_id | str | `SD-MAIN` normally; show location for gem_show orders |
 | status | str | `placed` → `shipped` → `delivered`; ~3% `cancelled`; ~2% `returned` |
 | ship_date | date, nullable | 0–5 business days after order if in stock |
-| order_discount_pct | float | 0 for most; 5–15% for wholesalers and show deals |
+| order_discount_pct | float | Percentage points (5.0 = 5%). 0 for most; 5–15 for wholesalers and show deals |
 | sales_rep_id | str | |
 | updated_at | timestamp | changes when status changes |
 
@@ -103,7 +116,7 @@ Volumes are targets, not hard requirements; keep within ±25%.
 | quantity | float | ordered quantity (in product UoM); must respect case packs mostly |
 | quantity_fulfilled | float | ≤ quantity; less when stock ran out (**this is how stockouts show up**) |
 | unit_price_usd | float | list price at time of order, with occasional negotiated deviation |
-| line_discount_pct | float | |
+| line_discount_pct | float | Percentage points; 5 or 10 on ~6% of lines |
 
 ### `purchase_orders`
 | column | type | notes |

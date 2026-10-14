@@ -1,4 +1,5 @@
-# Synthetic data generator config. See docs/03_data_spec.md for meaning of every field.
+# Synthetic data generator config. See docs/03_data_spec.md for the meaning of every field.
+# All randomness flows from `seed`; same seed + scale = byte-identical output.
 seed: 42
 company_name: "Craftstones USA"   # synthetic data; ideal-state redesign, not the production system
 
@@ -10,6 +11,7 @@ scales:
     n_skus: 200
     n_suppliers: 15
     target_orders: 12000
+    target_order_lines: 60000
   medium:
     start_date: "2023-10-01"
     end_date: "2026-09-30"
@@ -17,16 +19,36 @@ scales:
     n_skus: 1200
     n_suppliers: 60
     target_orders: 120000
+    target_order_lines: 900000
 
 warehouses:
   - {warehouse_id: SD-MAIN, warehouse_name: San Diego Main, warehouse_type: main, city: San Diego, state: CA, is_seasonal: false}
   - {warehouse_id: SHOW-TUC, warehouse_name: Tucson Show Booth, warehouse_type: show, city: Tucson, state: AZ, is_seasonal: true}
   - {warehouse_id: SHOW-DEN, warehouse_name: Denver Show Booth, warehouse_type: show, city: Denver, state: CO, is_seasonal: true}
 
+reference:
+  supplier_country_weights: {India: 0.30, Brazil: 0.20, China: 0.15, Madagascar: 0.08, Mexico: 0.08, Morocco: 0.07, USA: 0.12}
+  unreliable_supplier_share: 0.30
+  customer_type_weights:
+    retail_shop: 0.35
+    jewelry_maker: 0.20
+    online_reseller: 0.18
+    interior_designer: 0.10
+    landscaper: 0.08
+    wholesaler: 0.05
+    metaphysical_store: 0.04
+  customers_existing_at_start_share: 0.75   # the rest arrive steadily during the range
+  launched_in_range_share: 0.10
+  discontinued_in_range_share: 0.08
+
 demand:
-  pareto_alpha: 1.16            # tune so top 20% of SKUs ~ 75–80% of revenue
-  negbin_dispersion: 0.6         # lower = lumpier B2B demand
+  top20_revenue_share: 0.79     # Zipf exponent is solved so the top 20% of SKUs target this revenue share
+  qty_dispersion: 0.6           # negative binomial size parameter for line quantities; lower = lumpier
   show_multiplier_range: [2.5, 4.0]
+  show_category_share: 0.85     # share of normal demand that comes from show-relevant categories
+  price_elasticity: 0.8
+  launch_ramp_days: 60
+  discontinue_decay_days: 30
   category_trend_per_year:
     Jewelry Components: 0.08
     Crystal Clusters: 0.04
@@ -34,11 +56,44 @@ demand:
     Tumbled Stones: 0.0
     Rough Minerals: -0.01
     Decor & Landscape: -0.03
+  # Monthly multipliers, Jan..Dec. Jewelry and crystals peak Oct-Nov; landscape peaks Mar-May; all dip in July.
+  category_seasonality:
+    Polished Stones:    [1.00, 1.00, 1.00, 1.00, 1.00, 0.95, 0.75, 0.90, 1.00, 1.10, 1.20, 1.10]
+    Rough Minerals:     [1.05, 1.05, 1.00, 1.00, 0.95, 0.90, 0.75, 0.90, 1.05, 1.05, 1.00, 0.90]
+    Crystal Clusters:   [1.00, 1.00, 0.90, 0.90, 0.90, 0.85, 0.70, 0.85, 1.00, 1.35, 1.50, 1.20]
+    Tumbled Stones:     [1.00, 1.00, 1.00, 1.00, 1.00, 0.95, 0.75, 0.90, 1.00, 1.10, 1.20, 1.10]
+    Jewelry Components: [0.95, 0.90, 0.90, 0.90, 0.95, 0.90, 0.70, 0.85, 1.00, 1.40, 1.60, 1.10]
+    Decor & Landscape:  [0.60, 0.75, 1.50, 1.70, 1.60, 1.10, 0.70, 0.85, 0.95, 0.90, 0.70, 0.60]
   customer_churn_share: 0.15
 
+orders:
+  cancel_rate: 0.03             # customer cancellations (before fulfillment)
+  return_rate: 0.02             # whole orders returned after delivery (status = returned)
+  negotiated_price_share: 0.15  # lines priced below list
+  line_discount_share: 0.06
+
 purchasing:  # the naive "gut feel" policy the platform will improve on
+  gut_feel_noise_sigma: 0.35        # lognormal noise on the buyer's demand estimate
+  reorder_threshold_buffer: 1.10    # threshold = gut demand x QUOTED lead time x buffer
+  order_cover_days: 75
+  opening_stock_extra_days: 45
+  show_demand_guess_multiplier: 3.0
   show_overbuy_multiplier_range: [1.3, 2.0]
-  uses_quoted_lead_time: true
+  show_prebuy_min_case_packs: 2
+  show_prebuy_buffer_days: 14
+  show_transfer_lead_days: 2
+  po_cancel_rate: 0.02
+
+inventory:
+  cycle_count_period_days_a: 30
+  cycle_count_period_days_other: 91
+  count_noise_range: [-0.03, 0.01]
+  big_miss_rate: 0.004          # planted issue 10: rare large losses found by a count
+
+reference_changes:
+  cost_change_monthly_rate: 0.02
+  credit_terms_change_monthly_rate: 0.01
+  sales_rep_change_monthly_rate: 0.003
 
 planted_issues:  # rates as fractions of rows in the relevant table
   duplicate_customers: 0.02
@@ -54,3 +109,5 @@ output:
   raw_dir: data/raw/erp
   truth_dir: data/_truth
   state_file: data/raw/_state.json
+  fx_seed: transform/seeds/fx_static_rates.csv
+  show_calendar_seed: transform/seeds/gem_show_calendar.csv

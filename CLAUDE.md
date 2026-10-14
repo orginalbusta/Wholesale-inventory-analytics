@@ -47,6 +47,7 @@ An **ideal-state redesign** of the data platform for **Craftstones USA**, the ~2
 ```
 make setup          # uv sync + dbt deps
 make generate       # synthetic data, SCALE=small|medium (default small)
+make summary        # print sanity stats for the generated data
 make load           # dlt: data/raw -> warehouse raw schemas
 make dbt-build      # dbt build (models + tests + snapshots + seeds)
 make all            # generate + load + dbt-build

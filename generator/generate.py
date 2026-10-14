@@ -4,44 +4,108 @@ Usage:
     uv run python -m generator.generate --scale small --mode backfill
     uv run python -m generator.generate --scale small --mode simulate-day
 
-Implementation plan (Phase 1). Suggested module layout:
-    generator/
-      config.py        load + validate config.yaml, resolve scale
-      reference.py     warehouses, suppliers (+ hidden lead-time truth), products, customers
-      demand.py        per-SKU daily expected demand (base x trend x seasonality x show x lifecycle x price)
-      simulate.py      day-by-day loop: demand -> orders -> fulfillment from inventory -> naive purchasing
-                       -> PO arrivals -> transfers to/from show warehouses -> cycle counts -> ledger
-      issues.py        apply planted data-quality issues AFTER the clean simulation; record IDs in _truth
-      writer.py        parquet output per table per run_id, _extracted_at, truth files, state file
-      state.py         serialize/restore simulation state for simulate-day mode
+Modes:
+    backfill      wipe data/raw/erp and data/_truth, simulate start_date..end_date, write
+                  every table as of end_date (run_id "backfill") plus ground truth
+    simulate-day  advance one day past the last run recorded in data/raw/_state.json and write
+                  only that day's new and changed rows (run_id "<YYYY-MM-DD>")
 
-Key invariants (test these in tests/test_generator.py):
-    - Same seed + scale -> identical outputs.
-    - True (pre-issue) inventory never goes negative.
-    - quantity_fulfilled <= quantity; stockouts and dead stock both occur.
-    - Planted issues appear at configured rates and are listed in data/_truth/planted_issues.parquet.
+simulate-day re-runs the whole simulation up to the new day instead of restoring a pickled
+state. Every day draws from its own random stream (generator/randomness.py), so the re-run
+reproduces all earlier days exactly and only the new day is new.
+
+Module layout:
+    config.py      config.yaml + shared seeds (show calendar, FX rates)
+    randomness.py  per-day random streams and stable hashes
+    reference.py   warehouses, suppliers, products, customers (+ hidden truth)
+    timelines.py   cost/price changes and customer term changes over time
+    demand.py      demand model, calibration, the naive buyer's demand estimate
+    simulate.py    day-by-day loop: orders -> fulfillment -> transfers -> counts -> purchasing
+    issues.py      planted data-quality issues + registry
+    writer.py      as-of extracts, parquet output, truth files, state file
 """
 
 from __future__ import annotations
 
 import argparse
+import time
+from datetime import date, timedelta
+from pathlib import Path
+
+from generator.config import DEFAULT_CONFIG_PATH, load_config
+from generator.demand import build_demand_model
+from generator.reference import build_reference
+from generator.simulate import run_simulation
+from generator.timelines import build_timelines
+from generator.writer import read_state, reset_output, write_run, write_state, write_truth
+
+
+def simulate_through(cfg, horizon_end: date):
+    """Build reference data and run the simulation from start_date through `horizon_end`."""
+    ref = build_reference(cfg)
+    tl = build_timelines(cfg, ref, horizon_end)
+    model = build_demand_model(cfg, ref, tl)
+    sim = run_simulation(cfg, ref, tl, model)
+    return ref, tl, model, sim
+
+
+def backfill(cfg) -> dict[str, int]:
+    reset_output(cfg)
+    end = cfg.scale.end_date
+    ref, tl, model, sim = simulate_through(cfg, end)
+    counts = write_run(cfg, ref, tl, sim, end, "backfill", day_only=False)
+    write_truth(cfg, ref, model, sim)
+    write_state(
+        cfg,
+        {
+            "scale": cfg.scale.name,
+            "seed": cfg.seed,
+            "start_date": cfg.scale.start_date.isoformat(),
+            "as_of_date": end.isoformat(),
+            "runs": ["backfill"],
+        },
+    )
+    return counts
+
+
+def simulate_day(cfg) -> dict[str, int]:
+    state = read_state(cfg)
+    if state["scale"] != cfg.scale.name or state["seed"] != cfg.seed:
+        raise SystemExit(
+            f"State is for scale={state['scale']} seed={state['seed']}; "
+            f"rerun the backfill or pass --scale {state['scale']}."
+        )
+    day = date.fromisoformat(state["as_of_date"]) + timedelta(days=1)
+    ref, tl, _, sim = simulate_through(cfg, day)
+    run_id = day.isoformat()
+    counts = write_run(cfg, ref, tl, sim, day, run_id, day_only=True)
+    state["as_of_date"] = run_id
+    state["runs"].append(run_id)
+    write_state(cfg, state)
+    return counts
 
 
 def parse_args() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description=__doc__.split("\n")[0])
+    parser = argparse.ArgumentParser(
+        description="Synthetic ERP data generator (all data is fictional)."
+    )
     parser.add_argument("--scale", choices=["small", "medium"], default="small")
     parser.add_argument("--mode", choices=["backfill", "simulate-day"], default="backfill")
-    parser.add_argument("--config", default="generator/config.yaml")
+    parser.add_argument("--config", default=str(DEFAULT_CONFIG_PATH))
     parser.add_argument("--seed", type=int, default=None, help="Override config seed")
+    parser.add_argument("--output-root", default=".", help="Directory that data/ is written under")
     return parser.parse_args()
 
 
 def main() -> None:
     args = parse_args()
-    # TODO (Phase 1): implement per docs/03_data_spec.md
-    raise NotImplementedError(
-        f"Generator not implemented yet (scale={args.scale}, mode={args.mode}). See Phase 1."
-    )
+    cfg = load_config(args.config, args.scale, seed=args.seed, root=Path(args.output_root))
+    started = time.perf_counter()
+    counts = backfill(cfg) if args.mode == "backfill" else simulate_day(cfg)
+    elapsed = time.perf_counter() - started
+    print(f"{args.mode} ({args.scale}, seed {cfg.seed}) finished in {elapsed:.1f}s")
+    for table, n in counts.items():
+        print(f"  {table:<24} {n:>10,}")
 
 
 if __name__ == "__main__":

@@ -4,7 +4,7 @@ TARGET ?= dev
 DBT = uv run dbt --no-use-colors
 DBT_ARGS = --project-dir transform --profiles-dir transform --target $(TARGET)
 
-.PHONY: setup generate simulate-day load dbt-build all docs lint test dagster dashboard clean
+.PHONY: setup generate summary simulate-day load dbt-build all docs lint test dagster dashboard clean
 
 setup:
 	uv sync --all-groups
@@ -13,6 +13,9 @@ setup:
 
 generate:
 	uv run python -m generator.generate --scale $(SCALE) --mode backfill
+
+summary:
+	uv run python -m generator.summary
 
 simulate-day:
 	uv run python -m generator.generate --scale $(SCALE) --mode simulate-day
