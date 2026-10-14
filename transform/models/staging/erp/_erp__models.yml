@@ -1,0 +1,30 @@
+version: 2
+
+# Claude Code: one entry per staging model. Every model gets a description;
+# every primary key gets unique + not_null.
+
+models:
+  - name: stg_erp__sales_orders
+    description: >
+      One row per sales order, latest version. Re-extracted duplicate rows are
+      removed by keeping the most recent `updated_at` (planted issue 4).
+    columns:
+      - name: order_id
+        description: Primary key.
+        data_tests:
+          - unique
+          - not_null
+      - name: customer_id
+        description: Raw customer ID. May point at a duplicate customer record; resolve via int_customers__deduplicated.
+        data_tests:
+          - not_null
+      - name: channel
+        data_tests:
+          - accepted_values:
+              arguments:
+                values: ['phone_email', 'b2b_portal', 'gem_show', 'marketplace']
+      - name: order_status
+        data_tests:
+          - accepted_values:
+              arguments:
+                values: ['placed', 'shipped', 'delivered', 'cancelled', 'returned']

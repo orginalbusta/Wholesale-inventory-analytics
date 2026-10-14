@@ -1,0 +1,15 @@
+version: 2
+
+sources:
+  - name: fred
+    description: >
+      Public economic and exchange-rate series from the St. Louis Fed (FRED),
+      loaded by ingestion/load_fred.py. Long format: one row per series per date.
+    schema: raw_fred
+    tables:
+      - name: observations
+        columns:
+          - name: series_id
+          - name: date
+          - name: value
+            description: Raw string value; FRED uses '.' for missing.

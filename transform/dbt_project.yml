@@ -1,0 +1,46 @@
+name: craftstones
+version: "0.1.0"
+profile: craftstones
+# Built on dbt Core v1, written to stay compatible with dbt v2 (see docs/DECISIONS.md).
+require-dbt-version: [">=1.10.0", "<3.0.0"]
+
+model-paths: ["models"]
+seed-paths: ["seeds"]
+snapshot-paths: ["snapshots"]
+test-paths: ["tests"]
+macro-paths: ["macros"]
+analysis-paths: ["analyses"]
+
+clean-targets: ["target", "dbt_packages"]
+
+vars:
+  dead_stock_days: 180
+  demand_window_days: 90
+  lead_time_window_days: 365
+  review_period_days: 14
+  on_time_grace_days: 3
+  abc_thresholds: {a: 0.80, b: 0.95}
+  xyz_thresholds: {x: 0.5, y: 1.0}
+  incremental_lookback_days: 7
+
+models:
+  craftstones:
+    staging:
+      +schema: staging
+      +materialized: view
+    intermediate:
+      +schema: intermediate
+      +materialized: ephemeral
+    marts:
+      +schema: marts
+      +materialized: table
+      +contract:
+        enforced: true
+
+seeds:
+  craftstones:
+    +schema: seeds
+
+snapshots:
+  craftstones:
+    +schema: snapshots

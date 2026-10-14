@@ -1,0 +1,56 @@
+# Synthetic data generator config. See docs/03_data_spec.md for meaning of every field.
+seed: 42
+company_name: "Craftstones USA"   # synthetic data; ideal-state redesign, not the production system
+
+scales:
+  small:
+    start_date: "2025-04-01"
+    end_date: "2026-09-30"
+    n_customers: 150
+    n_skus: 200
+    n_suppliers: 15
+    target_orders: 12000
+  medium:
+    start_date: "2023-10-01"
+    end_date: "2026-09-30"
+    n_customers: 650
+    n_skus: 1200
+    n_suppliers: 60
+    target_orders: 120000
+
+warehouses:
+  - {warehouse_id: SD-MAIN, warehouse_name: San Diego Main, warehouse_type: main, city: San Diego, state: CA, is_seasonal: false}
+  - {warehouse_id: SHOW-TUC, warehouse_name: Tucson Show Booth, warehouse_type: show, city: Tucson, state: AZ, is_seasonal: true}
+  - {warehouse_id: SHOW-DEN, warehouse_name: Denver Show Booth, warehouse_type: show, city: Denver, state: CO, is_seasonal: true}
+
+demand:
+  pareto_alpha: 1.16            # tune so top 20% of SKUs ~ 75–80% of revenue
+  negbin_dispersion: 0.6         # lower = lumpier B2B demand
+  show_multiplier_range: [2.5, 4.0]
+  category_trend_per_year:
+    Jewelry Components: 0.08
+    Crystal Clusters: 0.04
+    Polished Stones: 0.02
+    Tumbled Stones: 0.0
+    Rough Minerals: -0.01
+    Decor & Landscape: -0.03
+  customer_churn_share: 0.15
+
+purchasing:  # the naive "gut feel" policy the platform will improve on
+  show_overbuy_multiplier_range: [1.3, 2.0]
+  uses_quoted_lead_time: true
+
+planted_issues:  # rates as fractions of rows in the relevant table
+  duplicate_customers: 0.02
+  inconsistent_category_labels: 0.05
+  sku_code_variants: 0.01
+  reextracted_duplicate_orders: 0.005
+  negative_quantity_returns: 0.003
+  bad_or_null_emails: 0.04
+  mixed_date_formats: 0.02
+  orphan_order_lines: 0.001
+
+output:
+  raw_dir: data/raw/erp
+  truth_dir: data/_truth
+  state_file: data/raw/_state.json

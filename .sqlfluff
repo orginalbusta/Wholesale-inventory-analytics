@@ -1,0 +1,28 @@
+[sqlfluff]
+dialect = duckdb
+templater = dbt
+max_line_length = 100
+# Lint rules: start strict-ish; relax in DECISIONS.md if a rule fights dbt patterns.
+exclude_rules = ST06
+
+[sqlfluff:templater:dbt]
+project_dir = transform
+profiles_dir = transform
+profile = craftstones
+target = dev
+
+[sqlfluff:indentation]
+indent_unit = space
+tab_space_size = 4
+
+[sqlfluff:rules:capitalisation.keywords]
+capitalisation_policy = lower
+
+[sqlfluff:rules:capitalisation.functions]
+extended_capitalisation_policy = lower
+
+[sqlfluff:rules:convention.terminator]
+multiline_newline = false
+
+[sqlfluff:layout:type:comma]
+line_position = trailing

@@ -1,0 +1,12 @@
+# `docker compose up` → Dagster UI at http://localhost:3000 (Phase 6).
+services:
+  dagster:
+    build: .
+    ports:
+      - "3000:3000"
+    env_file:
+      - path: .env
+        required: false
+    volumes:
+      - ./data:/app/data
+      - ./warehouse:/app/warehouse

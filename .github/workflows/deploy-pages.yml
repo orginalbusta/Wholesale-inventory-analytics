@@ -1,0 +1,63 @@
+# Deploy dashboard (Evidence) + dbt docs to GitHub Pages. Implemented in Phase 5.
+# Repo settings → Pages → Source: "GitHub Actions".
+name: deploy-pages
+
+# Manual-only until Phase 5 is complete; then add `push: branches: [main]`.
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      DUCKDB_PATH: warehouse/craftstones.duckdb
+      FRED_API_KEY: ${{ secrets.FRED_API_KEY }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Build warehouse (medium scale)
+        run: |
+          uv sync
+          uv run dbt deps --project-dir transform --profiles-dir transform
+          uv run python -m generator.generate --scale medium --mode backfill
+          uv run python -m ingestion.load_erp
+          uv run python -m ingestion.load_fred
+          uv run dbt build --project-dir transform --profiles-dir transform
+          uv run dbt docs generate --project-dir transform --profiles-dir transform --static
+
+      # TODO (Phase 5): build Evidence into ./site and copy dbt static docs into ./site/dbt-docs/
+      - name: Assemble site
+        run: |
+          mkdir -p site/dbt-docs
+          cp transform/target/static_index.html site/dbt-docs/index.html
+          echo "<!-- Evidence build goes here (Phase 5) -->" > site/index.html
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: site
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4

@@ -1,0 +1,27 @@
+# Safe to commit: all secrets come from environment variables.
+# Paths are relative to the directory dbt runs from (the repo root, via the Makefile).
+craftstones:
+  target: dev
+  outputs:
+    dev:
+      type: duckdb
+      path: "{{ env_var('DUCKDB_PATH', 'warehouse/craftstones.duckdb') }}"
+      threads: 4
+
+    ci:
+      type: duckdb
+      path: "{{ env_var('DUCKDB_PATH', 'warehouse/ci.duckdb') }}"
+      threads: 4
+
+    snowflake:
+      type: snowflake
+      account: "{{ env_var('SNOWFLAKE_ACCOUNT', '') }}"
+      user: "{{ env_var('SNOWFLAKE_USER', '') }}"
+      role: "{{ env_var('SNOWFLAKE_ROLE', 'TRANSFORMER') }}"
+      warehouse: "{{ env_var('SNOWFLAKE_WAREHOUSE', 'COMPUTE_WH') }}"
+      database: "{{ env_var('SNOWFLAKE_DATABASE', 'CRAFTSTONES_ANALYTICS') }}"
+      schema: dbt
+      authenticator: snowflake_jwt
+      private_key_path: "{{ env_var('SNOWFLAKE_PRIVATE_KEY_PATH', '') }}"
+      private_key_passphrase: "{{ env_var('SNOWFLAKE_PRIVATE_KEY_PASSPHRASE', '') }}"
+      threads: 4

@@ -1,0 +1,28 @@
+version: 2
+
+sources:
+  - name: erp
+    description: >
+      Raw ERP-style export for the Craftstones ideal-state redesign. All data is
+      synthetic; this is not the production schema at Craftstones. Loaded by dlt from
+      data/raw/erp/. Never modified by dbt. Contains deliberately planted
+      data-quality issues; see docs/03_data_spec.md.
+    schema: raw_erp
+    loaded_at_field: _extracted_at
+    tables:
+      - name: warehouses
+      - name: suppliers
+      - name: products
+      - name: customers
+      - name: sales_orders
+        freshness:
+          warn_after: {count: 2, period: day}
+          error_after: {count: 5, period: day}
+      - name: sales_order_lines
+      - name: purchase_orders
+      - name: purchase_order_lines
+      - name: inventory_movements
+        freshness:
+          warn_after: {count: 2, period: day}
+          error_after: {count: 5, period: day}
+      - name: cycle_counts
