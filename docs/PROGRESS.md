@@ -49,7 +49,7 @@ Update at the end of every phase: what was built, acceptance check results, know
 **Acceptance checks**
 | Check | Result |
 |---|---|
-| `make generate SCALE=small` in < 60s | 1.4s (medium: ~10s) |
+| `make generate SCALE=small` in < 60s | 1.4s (medium: ~5s) |
 | `make test` | 18 passed in ~11s |
 | Summary script prints sane stats | yes (`make summary`) |
 
@@ -58,19 +58,20 @@ Tests cover: byte-identical output for the same seed (and different output for a
 **Generated data at a glance (seed 42)**
 | | small | medium |
 |---|---|---|
-| Orders / order lines | 12,069 / 57,941 (targets 12k / 60k) | 120,777 / 856,605 (targets 120k / 850k-1M) |
-| Inventory movements | 57,827 | 830,413 |
-| Top 20% of SKUs' share of revenue | 75.0% | 79.0% |
-| Unit fill rate | 91.2% | 89.4% |
-| Dead-stock SKUs / share of inventory cost | 9 / 9.9% | 78 / 5.9% |
-| Received POs > 3 days later than quoted | 50.6% | 56.6% |
-| gem_show share of orders | 8.4% | 11.7% |
+| Orders / order lines | 12,069 / 57,941 (targets 12k / 60k) | 40,595 / 287,545 (targets 40k / 300k) |
+| Inventory movements | 57,827 | 306,405 |
+| Top 20% of SKUs' share of revenue | 75.0% | 80.5% |
+| Unit fill rate | 91.2% | 87.5% |
+| Dead-stock SKUs / share of inventory cost | 9 / 9.9% | 109 / 9.4% |
+| Received POs > 3 days later than quoted | 50.6% | 55.7% |
+| gem_show share of orders | 8.4% | 11.6% |
+| Synthetic revenue per year | ~$8M | ~$17M |
 
 These are sanity statistics on synthetic data, not README findings; findings come from the dbt marts.
 
 **Known issues / notes for later phases**
 - Phase 3: `_extracted_at` is simulated, so source freshness against the wall clock will flag the backfill as stale (see DECISIONS.md).
 - Phase 4: count ordered quantity on stockout-cancelled orders as demand (see DECISIONS.md).
-- Medium volumes imply roughly $50M/yr of revenue, high for a ~20-person distributor; open question for Harsh.
+- Medium volumes were cut to ~40k orders after review (was ~$53M/yr of synthetic revenue; now ~$17M/yr). See DECISIONS.md.
 
 **Next:** Phase 2, ingestion with dlt.

@@ -11,7 +11,7 @@ All randomness flows from a single seed in `generator/config.yaml`. Same seed + 
 | Scale | Date range | Customers | SKUs | Suppliers | Orders (approx) | Order lines (approx) | Use |
 |---|---|---|---|---|---|---|---|
 | `small` | 2025-04-01 → 2026-09-30 (18 mo) | 150 | 200 | 15 | ~12k | ~60k | CI, fast local dev |
-| `medium` | 2023-10-01 → 2026-09-30 (36 mo) | 650 | 1,200 | 60 | ~120k | ~850k–1M | Portfolio numbers, Snowflake demo |
+| `medium` | 2023-10-01 → 2026-09-30 (36 mo) | 650 | 1,200 | 60 | ~40k | ~300k | Portfolio numbers, Snowflake demo |
 
 Volumes are targets, not hard requirements; keep within ±25%. Order and line targets live in `generator/config.yaml` (`target_orders`, `target_order_lines`); the generator calibrates order rates and basket sizes to hit them.
 

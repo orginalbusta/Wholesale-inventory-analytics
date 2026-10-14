@@ -18,8 +18,8 @@ scales:
     n_customers: 650
     n_skus: 1200
     n_suppliers: 60
-    target_orders: 120000
-    target_order_lines: 900000
+    target_orders: 40000
+    target_order_lines: 300000
 
 warehouses:
   - {warehouse_id: SD-MAIN, warehouse_name: San Diego Main, warehouse_type: main, city: San Diego, state: CA, is_seasonal: false}
