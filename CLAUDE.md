@@ -36,7 +36,7 @@ An **ideal-state redesign** of the data platform for **Craftstones USA**, the ~2
 
 ## Conventions
 
-- **Python** ≥ 3.11, managed with `uv` (`uv sync`, `uv run ...`). Lint/format with `ruff`. Tests with `pytest`.
+- **Python** ≥ 3.12 (pinned to 3.12 in `.python-version`), managed with `uv` (`uv sync`, `uv run ...`). Lint/format with `ruff`. Tests with `pytest`.
 - **SQL**: lowercase keywords, trailing commas, CTE-first style, lint with `sqlfluff` (config in `.sqlfluff`, dialect duckdb).
 - **dbt naming**: `stg_<source>__<entity>`, `int_<verb/entity>`, `dim_*`, `fct_*`, `mart_*`. One `_<dir>__models.yml` per directory. Every model has a description; every primary key has `unique` + `not_null`.
 - **Commits**: conventional commits (`feat:`, `fix:`, `chore:`, `docs:`, `test:`, `ci:`).

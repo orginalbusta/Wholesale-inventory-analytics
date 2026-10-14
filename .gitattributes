@@ -1,0 +1,4 @@
+# Normalize line endings so the Makefile, shell steps and SQL behave the same on Windows, macOS and Linux.
+* text=auto eol=lf
+*.parquet binary
+*.duckdb binary

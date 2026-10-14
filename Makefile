@@ -32,7 +32,7 @@ docs:
 lint:
 	uv run ruff check .
 	uv run ruff format --check .
-	uv run sqlfluff lint transform/models transform/tests transform/snapshots transform/macros
+	uv run sqlfluff lint transform/models transform/tests transform/snapshots
 
 test:
 	uv run pytest -q

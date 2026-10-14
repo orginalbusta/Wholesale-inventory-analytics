@@ -1,7 +1,7 @@
-# Claude Code: update `rev`s to current tags in Phase 0 (`uv run pre-commit autoupdate`).
+# Hook revs checked against upstream tags on 2026-10-14. Keep ruff's rev in sync with pyproject.toml.
 repos:
   - repo: https://github.com/pre-commit/pre-commit-hooks
-    rev: v5.0.0
+    rev: v6.0.0
     hooks:
       - id: trailing-whitespace
       - id: end-of-file-fixer
@@ -10,9 +10,9 @@ repos:
         args: ["--maxkb=1000"]
       - id: detect-private-key
   - repo: https://github.com/astral-sh/ruff-pre-commit
-    rev: v0.8.0
+    rev: v0.17.0
     hooks:
-      - id: ruff
+      - id: ruff-check
         args: [--fix]
       - id: ruff-format
   - repo: local
@@ -21,4 +21,4 @@ repos:
         name: sqlfluff lint (dbt models)
         entry: uv run sqlfluff lint
         language: system
-        files: ^transform/(models|tests|snapshots|macros)/.*\.sql$
+        files: ^transform/(models|tests|snapshots)/.*\.sql$

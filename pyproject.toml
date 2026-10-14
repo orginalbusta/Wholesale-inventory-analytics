@@ -3,46 +3,48 @@ name = "wholesale-inventory-analytics"
 version = "0.1.0"
 description = "Ideal-state redesign of the Craftstones USA data platform: inventory and demand analytics on synthetic + public data."
 readme = "README.md"
-requires-python = ">=3.11"
+requires-python = ">=3.12,<3.14"
 license = { text = "MIT" }
 authors = [{ name = "Harsh Arya" }]
 
-# Loose lower bounds checked against PyPI on 2026-10-14. Claude Code: resolve and tighten in Phase 0.
+# Ranges verified against PyPI on 2026-10-14 (uv.lock pins exact versions).
+# Lower bound = version tested; upper bound = next breaking release.
+# dagster and dagster-dbt release in lockstep, so they are capped at the minor version.
 dependencies = [
-    "numpy>=2.0",
-    "pandas>=2.2",
-    "pyarrow>=17",
-    "faker>=30",
-    "pyyaml>=6",
-    "requests>=2.32",
-    "python-dotenv>=1.0",
-    "duckdb>=1.2",
-    "dlt[duckdb]>=1.20",
-    "dbt-core>=1.10,<2",
-    "dbt-duckdb>=1.10",
-    "dagster>=1.11",
-    "dagster-webserver>=1.11",
-    "dagster-dbt>=0.27",
+    "numpy>=2.5,<3",
+    "pandas>=3.0,<4",
+    "pyarrow>=26,<27",
+    "faker>=40,<41",
+    "pyyaml>=6.0,<7",
+    "requests>=2.34,<3",
+    "python-dotenv>=1.2,<2",
+    "duckdb>=1.5,<2",
+    "dlt[duckdb]>=1.31,<2",
+    "dbt-core>=1.12,<2",
+    "dbt-duckdb>=1.11,<2",
+    "dagster>=1.13,<1.14",
+    "dagster-webserver>=1.13,<1.14",
+    "dagster-dbt>=0.29,<0.30",
 ]
 
 [project.optional-dependencies]
 snowflake = [
-    "dbt-snowflake>=1.10",
-    "dlt[snowflake]>=1.20",
+    "dbt-snowflake>=1.12,<2",
+    "dlt[snowflake]>=1.31,<2",
 ]
 
 [dependency-groups]
 dev = [
-    "pytest>=8",
-    "ruff>=0.8",
-    "sqlfluff>=3.3",
-    "sqlfluff-templater-dbt>=3.3",
-    "pre-commit>=4",
+    "pytest>=9.1,<10",
+    "ruff>=0.17,<0.18",
+    "sqlfluff>=4.4,<5",
+    "sqlfluff-templater-dbt>=4.4,<5",
+    "pre-commit>=4.7,<5",
 ]
 
 [tool.ruff]
 line-length = 100
-target-version = "py311"
+target-version = "py312"
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "B", "UP", "SIM"]
