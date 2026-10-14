@@ -52,6 +52,7 @@ Each phase ends with: acceptance checks pass → update `docs/PROGRESS.md` → c
   5. **Sales and customers**: monthly trend by category with show windows shaded, RFM segments
 - GitHub Actions workflow `deploy-pages.yml` (finish the Evidence build step, then add the push trigger): on push to main → generate `medium` data → load → dbt build → build Evidence site + `dbt docs generate` → publish both to GitHub Pages (`/` dashboard, `/dbt-docs/` docs).
 - README v1: real findings from the data (no invented numbers), architecture diagram (Mermaid), stack table, how to run.
+- **Nightly refresh:** a scheduled workflow (cron) that restores the previous run's generator state, runs `simulate-day → load → dbt build`, and redeploys, so the live site shows an advancing "data as of" date. Free on a public repo. (Agreed with Harsh 2026-10-14; see DECISIONS.md.)
 
 **Accept when:** both sites are live at public URLs; README links work; README contains no `<<FILL` placeholders.
 
@@ -70,6 +71,8 @@ Each phase ends with: acceptance checks pass → update `docs/PROGRESS.md` → c
 **Accept when:** a PR with a deliberately broken model fails CI with a readable error; a clean PR passes.
 
 ## Phase 8: Snowflake target (optional, needs credentials)
+- Harsh starts the 30-day Snowflake trial right before this phase so the credits aren't wasted. Set auto-suspend (60s) on the warehouse and a resource monitor with a hard credit cap.
+- The public site keeps building from DuckDB; Snowflake results go into the README (screenshots, build time, credits used).
 - Configure `snowflake` target with key-pair auth via env vars; dlt Snowflake destination.
 - Run `medium` end-to-end on Snowflake; capture a screenshot or two for the README; note warehouse size and credit usage.
 - Confirm cross-database macros work on both adapters.
