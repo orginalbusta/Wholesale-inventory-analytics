@@ -47,4 +47,4 @@ dashboard:
 	cd dashboard && npm install && npm run sources && npm run dev
 
 clean:
-	rm -rf data/raw data/_truth warehouse/*.duckdb transform/target transform/dbt_packages transform/logs
+	rm -rf data/raw data/_truth warehouse/*.duckdb transform/target transform/dbt_packages transform/logs .dlt/pipelines

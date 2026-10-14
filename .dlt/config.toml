@@ -1,0 +1,7 @@
+# dlt settings shared by ingestion/load_erp.py and ingestion/load_fred.py. Secrets go in .env, never here.
+[runtime]
+dlthub_telemetry = false
+log_level = "WARNING"
+
+[normalize.parquet_normalizer]
+add_dlt_load_id = true  # tag every raw row with the load that wrote it (joins to _dlt_loads)

@@ -39,3 +39,4 @@ dashboard/build/
 .DS_Store
 .vscode/
 .idea/
+.dlt/pipelines/

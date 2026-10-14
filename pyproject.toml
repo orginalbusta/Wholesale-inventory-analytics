@@ -52,6 +52,8 @@ ignore = ["E501"]  # ruff format handles code line length; long docstring lines 
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+# sqlglotrs is pulled in by a dependency and warns on import; not our code.
+filterwarnings = ["ignore:sqlglotrs is deprecated:DeprecationWarning"]
 
 [tool.dagster]
 module_name = "orchestration.craftstones_dagster.definitions"

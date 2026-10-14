@@ -49,7 +49,8 @@ jobs:
         run: |
           uv run python -m ingestion.load_erp
           uv run python -m ingestion.load_fred
-        # FRED_API_KEY is intentionally not set in CI: load_fred skips and dbt uses seed FX rates.
+        # No FRED_API_KEY in CI: load_fred uses FRED's public CSV endpoint, and skips with a
+        # warning if FRED is unreachable. PO costs use the committed FX seed either way.
 
       - name: dbt build
         run: uv run dbt build --project-dir transform --profiles-dir transform --target ci

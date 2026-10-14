@@ -6,7 +6,7 @@ Update at the end of every phase: what was built, acceptance check results, know
 |---|---|---|---|
 | 0: Environment and skeleton | done | 2026-10-14 | All acceptance checks pass (see below) |
 | 1: Synthetic data generator | done | 2026-10-14 | All acceptance checks pass; 18 pytest tests (see below) |
-| 2: Ingestion (dlt) | not started | | |
+| 2: Ingestion (dlt) | done | 2026-10-14 | All acceptance checks pass; 7 new pytest tests (25 total) |
 | 3: dbt staging, seeds, snapshots | not started | | |
 | 4: Intermediate and marts | not started | | |
 | 5: Dashboard, docs site, README v1 | not started | | |
@@ -75,3 +75,27 @@ These are sanity statistics on synthetic data, not README findings; findings com
 - Medium volumes were cut to ~40k orders after review (was ~$53M/yr of synthetic revenue; now ~$17M/yr). See DECISIONS.md.
 
 **Next:** Phase 2, ingestion with dlt.
+
+## Phase 2: Ingestion with dlt (2026-10-14)
+
+**Built**
+- `ingestion/load_erp.py`: one dlt resource per table, Arrow tables straight from parquet, appended to `raw_erp.<table>` with `_run_id` and `_dlt_load_id`. Idempotency through `raw_erp.load_audit` (file SHA-256s); automatic full refresh when data was regenerated; `--full-refresh` flag.
+- `ingestion/load_fred.py`: six FRED series into `raw_fred.observations` (merge on series_id + date, 90-day revision lookback). Official API with `FRED_API_KEY`, public CSV without one, warn-and-skip if offline.
+- `ingestion/destinations.py`: `WAREHOUSE=duckdb` (default) or `snowflake` (key-pair auth from env; exercised in Phase 8).
+- `.dlt/config.toml` (no secrets), `make clean` removes dlt's local state.
+
+**Acceptance checks**
+| Check | Result |
+|---|---|
+| `make load` populates DuckDB | yes: 11 raw_erp tables + load_audit, raw_fred.observations (4,024 rows) |
+| Raw row counts match parquet | all 11 tables match (also a pytest) |
+| Re-running is idempotent | second load: "raw_erp is up to date" (also a pytest; FRED merge idempotency tested with mocked HTTP) |
+| `make simulate-day && make load` adds only the new day | loaded only the 2026-10-01 files (e.g. 52 order rows, 131 movements) (also a pytest) |
+
+Timing: small ERP load 2.9s, FRED 4-6s (network); medium ERP load 3.6s for 679k rows.
+
+**Notes for Phase 3**
+- Raw keeps every extracted version, so staging must dedupe mutable tables on PK (latest `updated_at`, then `_extracted_at`).
+- Add `product_price_history` (and optionally `load_audit`) to `_erp__sources.yml`; FRED `value` uses '' for missing in the CSV path and '.' in the API path.
+
+**Next:** Phase 3, dbt sources, seeds, staging, snapshots.

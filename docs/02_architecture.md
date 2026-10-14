@@ -12,7 +12,7 @@
      data/raw/erp/*.parquet     data/raw/fred/*.parquet
            │                           │
            └─────────── dlt ───────────┘
-                         │  (append / merge, adds _dlt_load_id)
+                         │  (append-only raw history + load_audit; FRED merge)
                          ▼
    ┌───────────────────────────────────────────────────────┐
    │ Warehouse: DuckDB (dev, CI) | Snowflake (optional)    │
