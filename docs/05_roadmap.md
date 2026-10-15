@@ -64,6 +64,21 @@ Each phase ends with: acceptance checks pass → update `docs/PROGRESS.md` → c
 
 **Accept when:** `make dagster` shows the full asset lineage; materializing all assets succeeds; `docker compose up` brings up the UI.
 
+## Phase 6.5: Interactive dashboard (what-if reorder policy + SKU drill-downs)
+Added 2026-10-15 at Harsh's request (see DECISIONS.md). Numbered 6.5 so the later phases keep their numbers. Everything runs in the visitor's browser (Evidence's static build queries an in-browser DuckDB), so the site stays free and serverless.
+
+- **What-if reorder policy page** (`dashboard/pages/what-if.md`). Inputs:
+  - **Service level** (e.g. 90 / 95 / 97.5 / 99 / 99.5%), applied to all SKUs or per ABC class. z comes from a seeded lookup table, not an in-browser inverse-normal function, so the page and dbt use the same numbers.
+  - **Lead-time buffer** (+0 to +30 days added to `lead_time_mean_days`).
+  - **Review period** (e.g. 7 to 60 days, replacing the `review_period_days` var).
+- The page recomputes the `04_dbt_spec.md` reorder formulas per SKU from the mart's exposed inputs (`demand_mean_daily`, `demand_std_daily`, `lead_time_mean_days`, `lead_time_std_days`, on-hand, on-order, case pack, unit cost): safety stock, reorder point, reorder-now flag, suggested qty, rounded up to the case pack.
+- Outputs compare the current policy with the scenario: SKUs to reorder now, total order value, safety-stock value (cash tied up), plus a per-SKU table with the deltas. A short note explains the trade-off: a higher service level means fewer stockouts but more cash in stock.
+- If the mart is missing an input the page needs, expose it in `mart_reorder_recommendations` (contract + docs updated). The page never re-derives business logic from staging.
+- **SKU drill-down pages** (`dashboard/pages/sku/[sku].md`, one templated page per SKU): stock on hand over time with the reorder point and safety stock drawn in, weekly demand, stockout days, open and recent POs (quoted vs. actual lead time), primary supplier's scorecard, ABC/XYZ class, and the current recommendation. SKU cells in the Reorder, Inventory health and What-if tables link here.
+- Keep the build within the CI and deploy time budgets: limit the time series on drill-down pages (e.g. trailing 12 months) so the static build doesn't balloon at `medium` scale.
+
+**Accept when:** at the default inputs (current seed service levels, +0 buffer, current review period), the what-if page reproduces `mart_reorder_recommendations` exactly (a pytest or a dbt test compares the page's SQL against the mart); moving each input changes the outputs in the expected direction; every active SKU has a drill-down page that builds with no query errors; `npm run build:strict` passes; deploy time stays under ~5 minutes.
+
 ## Phase 7: CI hardening
 - `ci.yml` on PR: ruff, sqlfluff (lint changed SQL), pytest, generate `small` → load → `dbt build --target ci`. Cache uv and dbt packages. Target < 6 min.
 - Optional: slim CI (`state:modified+` against main's manifest artifact).

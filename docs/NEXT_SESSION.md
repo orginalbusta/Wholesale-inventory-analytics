@@ -22,7 +22,7 @@ From `docs/05_roadmap.md`. Accept when `make dagster` shows the full asset linea
 3. dbt tests should surface as Dagster asset checks (dagster-dbt does this from the manifest).
 4. `Dockerfile` / `docker-compose.yml` exist from the scaffold: pin the `uv` image (currently `ghcr.io/astral-sh/uv:latest`), use Python 3.12, run webserver + daemon.
 5. **Docker is not installed** on Harsh's machine (`winget install Docker.DockerDesktop`, needs WSL2). Ask before relying on it; the Docker acceptance check can also run in CI.
-6. Then: Phase 7 (CI hardening, slim CI), Phase 8 (Snowflake: Harsh starts the 30-day trial right before; auto-suspend + resource monitor), Phase 9 (README polish, license, final review).
+6. Then: **Phase 6.5 (interactive dashboard, added 2026-10-15: what-if reorder policy page + SKU drill-down pages; see roadmap)**, Phase 7 (CI hardening, slim CI), Phase 8 (Snowflake: Harsh starts the 30-day trial right before; auto-suspend + resource monitor), Phase 9 (README polish, license, final review).
 
 ## Open items for Harsh
 
