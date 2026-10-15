@@ -24,7 +24,7 @@ craftstones:
       account: "{{ env_var('SNOWFLAKE_ACCOUNT', '') }}"
       user: "{{ env_var('SNOWFLAKE_USER', '') }}"
       role: "{{ env_var('SNOWFLAKE_ROLE', 'TRANSFORMER') }}"
-      warehouse: "{{ env_var('SNOWFLAKE_WAREHOUSE', 'COMPUTE_WH') }}"
+      warehouse: "{{ env_var('SNOWFLAKE_WAREHOUSE', 'CRAFTSTONES_WH') }}"
       database: "{{ env_var('SNOWFLAKE_DATABASE', 'CRAFTSTONES_ANALYTICS') }}"
       schema: dbt
       authenticator: snowflake_jwt

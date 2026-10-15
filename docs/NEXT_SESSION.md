@@ -17,14 +17,15 @@
 
 From `docs/05_roadmap.md`. Accept when `dbt build --target snowflake` passes and the README has a "Running on Snowflake" section.
 
-1. **Ask Harsh first.** He starts the 30-day Snowflake trial right before this phase, so credits aren't wasted. Never put credentials in chat or the repo; they go in `.env` (git-ignored).
-2. Write `snowflake/setup.sql` for him to run once as ACCOUNTADMIN: role `TRANSFORMER`, service user with key-pair auth (he generates the key with `openssl`, attaches the public key), database `CRAFTSTONES_ANALYTICS`, X-Small warehouse with `AUTO_SUSPEND = 60`, and a resource monitor with a hard credit cap he chooses.
-3. `profiles.yml` already has a `snowflake` target (key-pair auth from env vars); `ingestion/destinations.py` already supports `WAREHOUSE=snowflake`. Install with `uv sync --extra snowflake`.
-4. Run medium end-to-end on Snowflake; fix any adapter differences (cross-database macros, date arithmetic). Record build time, warehouse size and credits used; take a screenshot or two for the README.
+1. **Ready for Harsh:** `snowflake/setup.sql`, `snowflake/teardown.sql` and the walkthrough `snowflake/README.md` (trial signup, key pair via Git Bash `openssl`, run the script as ACCOUNTADMIN, fill `.env`, `dbt debug`). He starts the trial right before this phase. Never ask for credentials in chat; they live in `.env` (git-ignored) and `~/.snowflake/`.
+2. Start once he says `dbt debug --target snowflake` passes: `uv sync --all-groups --extra snowflake`; every Snowflake command runs as `uv run --env-file .env ...` (dbt doesn't load `.env`), with `WAREHOUSE=snowflake` set for the dlt loads only.
+3. Verify the `dbt-snowflake` and `dlt[snowflake]` versions against PyPI before relying on the extras; check dlt's Snowflake identifier casing against the dbt sources (`raw_erp`, `raw_fred`).
+4. Run medium end-to-end on Snowflake; fix adapter differences (cross-database macros, date arithmetic). Record build time, warehouse size and credits used (`snowflake/README.md` has the metering query); take a screenshot or two for the README, and add a "Running on Snowflake" section that links to `snowflake/README.md`.
 5. The public site and CI stay on DuckDB. Then Phase 9 (README polish, license, final review).
 
 ## Open items for Harsh
 
+- **Phase 8 prep is done:** follow `snowflake/README.md` (start the trial, create the key pair, run `setup.sql`, fill `.env`, run `dbt debug`), then say so.
 - **Confirm the README "As-is vs. ideal-state" left column** (what he actually built at Craftstones, including "Single analyst, no review process"). It's public now and was kept as he originally wrote it.
 - `docs/01_business_context.md` still has assumptions marked for his review (product mix, sourcing countries).
 - Optional: a free `FRED_API_KEY` as a repo secret (works without it via FRED's public CSV).
