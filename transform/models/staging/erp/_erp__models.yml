@@ -1,30 +1,474 @@
 version: 2
 
-# Claude Code: one entry per staging model. Every model gets a description;
-# every primary key gets unique + not_null.
+# Staging: 1:1 with raw ERP tables. Raw is an append-only history of extracts, so every
+# model keeps the latest version per primary key. Warn-severity tests flag planted
+# data-quality issues that are resolved downstream (docs/03_data_spec.md).
 
 models:
+  - name: stg_erp__warehouses
+    description: One row per stock location (main warehouse and gem-show booths).
+    columns:
+      - name: warehouse_id
+        description: Primary key (SD-MAIN, SHOW-TUC, SHOW-DEN).
+        data_tests: [unique, not_null]
+      - name: warehouse_name
+        description: Display name.
+      - name: warehouse_type
+        description: "`main` or `show`."
+        data_tests:
+          - accepted_values:
+              arguments:
+                values: ['main', 'show']
+      - name: city
+        description: City.
+      - name: state
+        description: US state code.
+      - name: is_seasonal
+        description: True for show booths that only hold stock during shows.
+      - name: extracted_at
+        description: When the source row was extracted (simulated).
+
+  - name: stg_erp__suppliers
+    description: One row per supplier.
+    columns:
+      - name: supplier_id
+        description: Primary key.
+        data_tests: [unique, not_null]
+      - name: supplier_name
+        description: Fictional supplier name.
+      - name: country
+        description: Supplier country.
+      - name: currency
+        description: Currency the supplier invoices in.
+        data_tests:
+          - accepted_values:
+              arguments:
+                values: ['INR', 'BRL', 'CNY', 'MGA', 'MXN', 'MAD', 'USD']
+      - name: payment_terms
+        description: Payment terms.
+        data_tests:
+          - accepted_values:
+              arguments:
+                values: ['PREPAID', 'NET30', 'NET60', '50_50']
+      - name: min_order_value_usd
+        description: Supplier's minimum order value in USD.
+      - name: created_date
+        description: When the supplier was set up.
+      - name: extracted_at
+        description: When the source row was extracted (simulated).
+
+  - name: stg_erp__products
+    description: >
+      One row per SKU, latest version. Category labels are normalized and mapped to one of
+      six canonical categories (planted issue 2).
+    columns:
+      - name: sku
+        description: Primary key, canonical format XXX-XXX-0000.
+        data_tests: [unique, not_null]
+      - name: product_name
+        description: Product name.
+      - name: category
+        description: Canonical category after mapping. Null would mean an unmapped label.
+        data_tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: ['Polished Stones', 'Rough Minerals', 'Crystal Clusters', 'Tumbled Stones', 'Jewelry Components', 'Decor & Landscape']
+      - name: category_raw
+        description: Category label exactly as the ERP sent it.
+      - name: material
+        description: Stone material, lowercase.
+      - name: primary_supplier_id
+        description: Supplier the SKU is normally bought from.
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('stg_erp__suppliers')
+                field: supplier_id
+      - name: unit_of_measure
+        description: "`each` or `lb`."
+        data_tests:
+          - accepted_values:
+              arguments:
+                values: ['each', 'lb']
+      - name: unit_cost_usd
+        description: Current unit cost in USD.
+        data_tests:
+          - not_null
+          - dbt_expectations.expect_column_values_to_be_between:
+              arguments:
+                min_value: 0
+                strictly: true
+      - name: list_price_usd
+        description: Current list price in USD.
+        data_tests:
+          - not_null
+      - name: case_pack_qty
+        description: Units per case pack.
+      - name: launch_date
+        description: Date the SKU went on sale.
+      - name: discontinued_date
+        description: Date the SKU was discontinued (null if active).
+      - name: is_active
+        description: False once discontinued.
+      - name: updated_at
+        description: Last change to the product record.
+      - name: extracted_at
+        description: When this version was extracted (simulated).
+    data_tests:
+      - dbt_utils.expression_is_true:
+          arguments:
+            expression: "list_price_usd >= unit_cost_usd"
+
+  - name: stg_erp__product_price_history
+    description: >
+      The ERP's price-change log: one row per cost or list-price change, plus each SKU's
+      initial price at setup. Basis for cost as of order date.
+    columns:
+      - name: price_change_id
+        description: Primary key.
+        data_tests: [unique, not_null]
+      - name: sku
+        description: SKU whose price changed.
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('stg_erp__products')
+                field: sku
+      - name: effective_date
+        description: Date the new price took effect.
+      - name: unit_cost_usd
+        description: Unit cost in effect after the change.
+        data_tests: [not_null]
+      - name: list_price_usd
+        description: List price in effect after the change.
+        data_tests: [not_null]
+      - name: changed_at
+        description: Timestamp of the change.
+        data_tests: [not_null]
+      - name: extracted_at
+        description: When the row was extracted (simulated).
+
+  - name: stg_erp__customers
+    description: >
+      One row per customer record, latest version. Still contains duplicate records for the
+      same business (planted issue 1), resolved in int_customers__deduplicated. Emails are
+      normalized and malformed ones flagged (issue 7).
+    columns:
+      - name: customer_id
+        description: Primary key (one per ERP record, so a business can have two).
+        data_tests: [unique, not_null]
+      - name: customer_name
+        description: Business name as keyed.
+      - name: customer_type
+        description: Customer segment.
+        data_tests:
+          - accepted_values:
+              arguments:
+                values: ['retail_shop', 'jewelry_maker', 'online_reseller', 'interior_designer', 'landscaper', 'wholesaler', 'metaphysical_store']
+      - name: contact_email
+        description: Trimmed, lowercased email; null when missing.
+        data_tests:
+          - dbt_expectations.expect_column_values_to_match_regex:
+              arguments:
+                regex: "^[a-z0-9._%+-]+@[a-z0-9.-]+[.][a-z]{2,}$"
+              config:
+                severity: warn
+      - name: state
+        description: US state code.
+      - name: credit_terms
+        description: Credit terms (tracked over time by snap_customers).
+        data_tests:
+          - accepted_values:
+              arguments:
+                values: ['PREPAID', 'NET30', 'NET60']
+      - name: sales_rep_id
+        description: Assigned sales rep.
+      - name: first_order_date
+        description: Date of the customer's first order.
+      - name: created_at
+        description: When the record was created in the ERP.
+      - name: updated_at
+        description: Last change to the record.
+      - name: extracted_at
+        description: When this version was extracted (simulated).
+      - name: is_email_valid
+        description: False for malformed emails; null when there is no email.
+
   - name: stg_erp__sales_orders
     description: >
-      One row per sales order, latest version. Re-extracted duplicate rows are
-      removed by keeping the most recent `updated_at` (planted issue 4).
+      One row per sales order, latest version. Removes re-extracted duplicates (issue 4) and
+      applies late-arriving status updates (issue 5) by keeping the latest updated_at.
     columns:
       - name: order_id
         description: Primary key.
-        data_tests:
-          - unique
-          - not_null
+        data_tests: [unique, not_null]
       - name: customer_id
         description: Raw customer ID. May point at a duplicate customer record; resolve via int_customers__deduplicated.
         data_tests:
           - not_null
+          - relationships:
+              arguments:
+                to: ref('stg_erp__customers')
+                field: customer_id
+      - name: order_date
+        description: Date the order was placed.
+        data_tests: [not_null]
       - name: channel
+        description: Sales channel.
         data_tests:
           - accepted_values:
               arguments:
                 values: ['phone_email', 'b2b_portal', 'gem_show', 'marketplace']
+      - name: warehouse_id
+        description: Warehouse that fulfills the order (a show booth for gem_show orders).
+        data_tests:
+          - relationships:
+              arguments:
+                to: ref('stg_erp__warehouses')
+                field: warehouse_id
       - name: order_status
+        description: Latest known status.
         data_tests:
           - accepted_values:
               arguments:
                 values: ['placed', 'shipped', 'delivered', 'cancelled', 'returned']
+      - name: ship_date
+        description: Ship date, null until shipped.
+      - name: order_discount_rate
+        description: Order-level discount as a fraction (source sends percentage points).
+        data_tests:
+          - dbt_expectations.expect_column_values_to_be_between:
+              arguments:
+                min_value: 0
+                max_value: 0.5
+      - name: sales_rep_id
+        description: Sales rep at the time of the order.
+      - name: updated_at
+        description: Time of the last status change.
+      - name: extracted_at
+        description: When this version was extracted (simulated).
+
+  - name: stg_erp__sales_order_lines
+    description: >
+      One row per order line. SKU variants are normalized (issue 3); negative-quantity
+      return lines are flagged and made positive (issue 6). Lines with unknown SKUs
+      (issue 9) are flagged by a warn-level relationships test and quarantined downstream.
+    columns:
+      - name: order_line_id
+        description: Primary key.
+        data_tests: [unique, not_null]
+      - name: order_id
+        description: Parent order.
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('stg_erp__sales_orders')
+                field: order_id
+      - name: line_no
+        description: Line number within the order.
+      - name: sku
+        description: Canonical SKU.
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('stg_erp__products')
+                field: sku
+              config:
+                severity: warn
+      - name: sku_raw
+        description: SKU exactly as keyed in the ERP.
+      - name: is_return_line
+        description: True for return lines keyed as negative quantities.
+      - name: quantity
+        description: Ordered quantity (returned quantity for return lines). Always >= 0.
+        data_tests:
+          - not_null
+          - dbt_expectations.expect_column_values_to_be_between:
+              arguments:
+                min_value: 0
+      - name: quantity_fulfilled
+        description: Quantity shipped; less than quantity when stock ran out (a stockout).
+        data_tests: [not_null]
+      - name: unit_price_usd
+        description: Unit price charged before line discount.
+        data_tests:
+          - dbt_expectations.expect_column_values_to_be_between:
+              arguments:
+                min_value: 0
+      - name: line_discount_rate
+        description: Line discount as a fraction.
+      - name: extracted_at
+        description: When the row was extracted (simulated).
+    data_tests:
+      - dbt_utils.expression_is_true:
+          arguments:
+            expression: "quantity_fulfilled <= quantity"
+
+  - name: stg_erp__purchase_orders
+    description: >
+      One row per purchase order, latest version. expected_arrival_date is parsed from mixed
+      string formats (issue 8).
+    columns:
+      - name: po_id
+        description: Primary key.
+        data_tests: [unique, not_null]
+      - name: supplier_id
+        description: Supplier.
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('stg_erp__suppliers')
+                field: supplier_id
+      - name: order_date
+        description: Date the PO was placed.
+        data_tests: [not_null]
+      - name: expected_arrival_date
+        description: Order date plus the supplier's quoted lead time. Every value must parse.
+        data_tests: [not_null]
+      - name: expected_arrival_date_raw
+        description: The unparsed string from the ERP.
+      - name: actual_arrival_date
+        description: Date the goods arrived; null while open or in transit.
+      - name: po_status
+        description: Latest known status.
+        data_tests:
+          - accepted_values:
+              arguments:
+                values: ['open', 'in_transit', 'received', 'partially_received', 'cancelled']
+      - name: currency
+        description: Currency of the PO's unit costs.
+        data_tests:
+          - accepted_values:
+              arguments:
+                values: ['INR', 'BRL', 'CNY', 'MGA', 'MXN', 'MAD', 'USD']
+      - name: updated_at
+        description: Time of the last status change.
+      - name: extracted_at
+        description: When this version was extracted (simulated).
+
+  - name: stg_erp__purchase_order_lines
+    description: One row per purchase order line, latest version.
+    columns:
+      - name: po_line_id
+        description: Primary key.
+        data_tests: [unique, not_null]
+      - name: po_id
+        description: Parent purchase order.
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('stg_erp__purchase_orders')
+                field: po_id
+      - name: sku
+        description: SKU ordered.
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('stg_erp__products')
+                field: sku
+      - name: quantity_ordered
+        description: Quantity ordered.
+        data_tests:
+          - dbt_expectations.expect_column_values_to_be_between:
+              arguments:
+                min_value: 0
+                strictly: true
+      - name: quantity_received
+        description: Quantity received; null until the PO arrives. Less than ordered on short shipments.
+      - name: unit_cost_local
+        description: Unit cost in the PO's currency.
+      - name: extracted_at
+        description: When this version was extracted (simulated).
+    data_tests:
+      - dbt_utils.expression_is_true:
+          arguments:
+            expression: "quantity_received is null or quantity_received <= quantity_ordered * 1.05"
+
+  - name: stg_erp__inventory_movements
+    description: The signed stock ledger, one row per movement. Summing quantity gives stock on hand.
+    columns:
+      - name: movement_id
+        description: Primary key; IDs sort in processing order within a day.
+        data_tests: [unique, not_null]
+      - name: movement_ts
+        description: When the movement happened.
+        data_tests: [not_null]
+      - name: movement_date
+        description: Date of the movement.
+      - name: warehouse_id
+        description: Warehouse whose stock changed.
+        data_tests:
+          - relationships:
+              arguments:
+                to: ref('stg_erp__warehouses')
+                field: warehouse_id
+      - name: sku
+        description: SKU whose stock changed.
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('stg_erp__products')
+                field: sku
+      - name: movement_type
+        description: Why stock changed.
+        data_tests:
+          - accepted_values:
+              arguments:
+                values: ['receipt', 'sale', 'return', 'transfer_in', 'transfer_out', 'adjustment']
+      - name: quantity
+        description: Signed quantity (+ into stock, - out of stock).
+        data_tests: [not_null]
+      - name: reference_id
+        description: PO line, order line, transfer, cycle count or OPENING-BALANCE.
+      - name: extracted_at
+        description: When the row was extracted (simulated).
+
+  - name: stg_erp__cycle_counts
+    description: >
+      One row per physical count at the main warehouse. Large negative variances (planted
+      issue 10: lost or stolen stock) are flagged by a warn-level test.
+    columns:
+      - name: count_id
+        description: Primary key.
+        data_tests: [unique, not_null]
+      - name: count_date
+        description: Date of the count.
+      - name: warehouse_id
+        description: Warehouse counted.
+      - name: sku
+        description: SKU counted.
+        data_tests:
+          - relationships:
+              arguments:
+                to: ref('stg_erp__products')
+                field: sku
+      - name: system_qty
+        description: Ledger quantity at count time.
+      - name: counted_qty
+        description: Physically counted quantity.
+        data_tests:
+          - dbt_expectations.expect_column_values_to_be_between:
+              arguments:
+                min_value: 0
+      - name: variance_qty
+        description: counted_qty - system_qty.
+      - name: variance_pct
+        description: variance_qty / system_qty; null when system_qty is 0.
+        data_tests:
+          - dbt_expectations.expect_column_values_to_be_between:
+              arguments:
+                min_value: -0.15
+                max_value: 0.05
+              config:
+                severity: warn
+      - name: extracted_at
+        description: When the row was extracted (simulated).

@@ -1,0 +1,39 @@
+version: 2
+
+# SCD2 history of slowly changing reference data. Snapshots capture changes from the first
+# pipeline run onward (each simulate-day run delivers new versions). Cost history before
+# that comes from the ERP's price-change log (stg_erp__product_price_history).
+
+snapshots:
+  - name: snap_products
+    description: >
+      Product versions over time (cost, list price, active flag). One row per SKU per
+      version; dbt_valid_to is null for the current version.
+    relation: ref('stg_erp__products')
+    config:
+      unique_key: sku
+      strategy: timestamp
+      updated_at: updated_at
+    columns:
+      - name: sku
+        description: SKU.
+      - name: dbt_valid_from
+        description: When this version became current.
+      - name: dbt_valid_to
+        description: When this version was replaced; null if current.
+
+  - name: snap_customers
+    description: >
+      Customer versions over time, tracking changes to credit terms and sales rep.
+    relation: ref('stg_erp__customers')
+    config:
+      unique_key: customer_id
+      strategy: check
+      check_cols: ['credit_terms', 'sales_rep_id']
+    columns:
+      - name: customer_id
+        description: Customer record ID.
+      - name: dbt_valid_from
+        description: When this version became current.
+      - name: dbt_valid_to
+        description: When this version was replaced; null if current.

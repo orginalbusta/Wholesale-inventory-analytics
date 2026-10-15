@@ -22,3 +22,4 @@ repos:
         entry: uv run sqlfluff lint
         language: system
         files: ^transform/(models|tests|snapshots)/.*\.sql$
+        require_serial: true  # the dbt templater compiles the whole project; one process is enough

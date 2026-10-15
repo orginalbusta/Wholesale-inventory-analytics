@@ -1,0 +1,78 @@
+version: 2
+
+seeds:
+  - name: gem_show_calendar
+    description: >
+      Gem show windows and the show-booth warehouse used for each. Dates are approximate
+      and for simulation only. The generator reads this same file.
+    columns:
+      - name: show_name
+        description: Show name.
+      - name: warehouse_id
+        description: Show-booth warehouse that holds stock during the show.
+        data_tests:
+          - accepted_values:
+              arguments:
+                values: ['SHOW-TUC', 'SHOW-DEN']
+      - name: start_date
+        description: First day of the show.
+        data_tests:
+          - unique
+          - not_null
+      - name: end_date
+        description: Last day of the show.
+        data_tests:
+          - not_null
+
+  - name: category_mapping
+    description: >
+      Maps a normalized raw category label (trimmed, lowercased, whitespace collapsed) to
+      one of the six canonical categories (planted issue 2).
+    columns:
+      - name: raw_category_normalized
+        description: Normalized raw label.
+        data_tests:
+          - unique
+          - not_null
+      - name: category
+        description: Canonical category.
+        data_tests:
+          - not_null
+
+  - name: fx_static_rates
+    description: >
+      Monthly units of currency per USD, shared by the generator and dbt so PO costs
+      reconcile. INR/BRL/CNY/MXN are FRED monthly means; MGA/MAD are labeled
+      approximations (not on FRED); later months are forward-filled. Built by
+      scripts/build_fx_seed.py.
+    columns:
+      - name: month
+        description: First day of the month.
+      - name: currency
+        description: ISO currency code.
+      - name: units_per_usd
+        description: Units of `currency` per 1 USD.
+        data_tests:
+          - not_null
+      - name: source
+        description: "`FRED <series> monthly mean`, `approximation`, `forward_fill` or `base` (USD)."
+    data_tests:
+      - dbt_utils.unique_combination_of_columns:
+          arguments:
+            combination_of_columns: ['month', 'currency']
+
+  - name: abc_xyz_policy
+    description: Target service level and safety-stock z-score for each ABC x XYZ class.
+    columns:
+      - name: abc_class
+        description: A, B or C by revenue contribution.
+      - name: xyz_class
+        description: X, Y or Z by demand variability.
+      - name: target_service_level
+        description: Target probability of not stocking out in a replenishment cycle.
+      - name: z_score
+        description: Standard normal quantile for the target service level.
+    data_tests:
+      - dbt_utils.unique_combination_of_columns:
+          arguments:
+            combination_of_columns: ['abc_class', 'xyz_class']

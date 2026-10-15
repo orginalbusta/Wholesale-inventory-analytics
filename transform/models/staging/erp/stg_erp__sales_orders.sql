@@ -1,6 +1,7 @@
--- Example staging model showing the house style. Claude Code: build the rest to match.
 -- Grain: one row per sales order (latest version).
--- Handles planted issue 4: duplicate rows from re-extraction, keeping the latest updated_at.
+-- Handles planted issue 4 (re-extracted duplicate rows, some of them stale older versions)
+-- and issue 5 (late-arriving status updates): raw keeps every extracted version, and this
+-- model keeps the one with the latest updated_at.
 
 with
 
@@ -31,7 +32,7 @@ renamed as (
         warehouse_id,
         lower(trim(status)) as order_status,
         cast(ship_date as date) as ship_date,
-        coalesce(order_discount_pct, 0) as order_discount_pct,
+        coalesce(order_discount_pct, 0) / 100.0 as order_discount_rate,
         sales_rep_id,
         cast(updated_at as timestamp) as updated_at,
         cast(_extracted_at as timestamp) as extracted_at

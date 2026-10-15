@@ -1,0 +1,30 @@
+version: 2
+
+models:
+  - name: stg_fred__observations
+    description: >
+      FRED economic and exchange-rate observations, one row per series per date, with
+      missing-value markers removed and values cast to numeric. Macro context and future
+      forecast regressors; PO cost conversion uses the FX seed instead.
+    data_tests:
+      - dbt_utils.unique_combination_of_columns:
+          arguments:
+            combination_of_columns: ['series_id', 'observation_date']
+    columns:
+      - name: series_id
+        description: FRED series ID (e.g. DEXINUS, RSXFS).
+        data_tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: ['DEXINUS', 'DEXBZUS', 'DEXCHUS', 'DEXMXUS', 'RSXFS', 'UMCSENT']
+      - name: observation_date
+        description: Observation date (first of the month for monthly series).
+        data_tests:
+          - not_null
+      - name: observation_value
+        description: Numeric value (units per USD for FX series).
+        data_tests:
+          - not_null
+      - name: fetched_via
+        description: "`api` (FRED API with a key) or `public_csv` (FRED's CSV download)."

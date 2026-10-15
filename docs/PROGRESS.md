@@ -7,7 +7,7 @@ Update at the end of every phase: what was built, acceptance check results, know
 | 0: Environment and skeleton | done | 2026-10-14 | All acceptance checks pass (see below) |
 | 1: Synthetic data generator | done | 2026-10-14 | All acceptance checks pass; 18 pytest tests (see below) |
 | 2: Ingestion (dlt) | done | 2026-10-14 | All acceptance checks pass; 7 new pytest tests (25 total) |
-| 3: dbt staging, seeds, snapshots | not started | | |
+| 3: dbt staging, seeds, snapshots | done | 2026-10-15 | All acceptance checks pass; 13 new pytest tests (38 total) |
 | 4: Intermediate and marts | not started | | |
 | 5: Dashboard, docs site, README v1 | not started | | |
 | 6: Orchestration and Docker | not started | | |
@@ -99,3 +99,42 @@ Timing: small ERP load 2.9s, FRED 4-6s (network); medium ERP load 3.6s for 679k 
 - Add `product_price_history` (and optionally `load_audit`) to `_erp__sources.yml`; FRED `value` uses '' for missing in the CSV path and '.' in the API path.
 
 **Next:** Phase 3, dbt sources, seeds, staging, snapshots.
+
+## Phase 3: dbt sources, seeds, staging, snapshots (2026-10-15)
+
+**Built**
+- Sources: 12 ERP tables (added `product_price_history`, `load_audit`) with freshness on orders and movements; FRED observations.
+- Seeds: `gem_show_calendar`, `category_mapping`, `fx_static_rates`, `abc_xyz_policy`, with column types, descriptions and key tests (`_seeds.yml`).
+- 12 staging views: 11 ERP + FRED, every column described. Each dedupes to the latest version per key.
+- Macros: `normalize_sku`, `parse_mixed_date`, `generate_schema_name`, plus cross-db helpers (`regexp_replace_all`, `regexp_full_match`, `normalize_label`).
+- Snapshots: `snap_products` (timestamp strategy), `snap_customers` (check on credit_terms, sales_rep_id).
+- Tests: 95 data tests, 1 singular test (duplicate emails), 5 dbt unit tests (SKU normalization, return lines, mixed dates, latest-version dedupe, category mapping).
+- `tests/test_dbt_staging.py`: builds a fresh warehouse (backfill + simulate-day) and checks all 10 planted issues against `data/_truth`.
+
+**How each planted issue is handled**
+| # | Issue | Fixed in staging | Caught by test |
+|---|---|---|---|
+| 1 | Duplicate customers | (resolved in Phase 4 int model) | `assert_no_duplicate_customer_emails` (warn) |
+| 2 | Inconsistent category labels | normalize + `category_mapping` seed | `not_null` + `accepted_values` on category; unit test |
+| 3 | SKU code variants | `normalize_sku()` | relationships to products; unit test |
+| 4 | Re-extracted duplicate orders | latest-version dedupe | `unique` on order_id; unit test |
+| 5 | Late status updates | latest-version dedupe | pytest vs. truth |
+| 6 | Returns as negative lines | `is_return_line` + positive quantities | quantity >= 0; unit test |
+| 7 | Null / malformed emails | lowercase + `is_email_valid` | regex test (warn) |
+| 8 | Mixed date formats | `parse_mixed_date()` | `not_null` on parsed date; unit test |
+| 9 | Orphan order lines | (quarantined in Phase 4) | relationships test (warn) |
+| 10 | Big-miss cycle counts | `variance_pct` | variance between -15% and +5% (warn) |
+
+**Acceptance checks**
+| Check | Result |
+|---|---|
+| `dbt build --select staging+ seeds snapshots` | PASS=100, WARN=4, ERROR=0 (full `dbt build`: PASS=114, WARN=4, ERROR=0 in ~2.5s of dbt time) |
+| The 4 warnings are exactly the planted issues | duplicate emails (4), malformed emails (5), orphan SKUs (71), big-miss counts (7), all matching the truth registry |
+| Every planted issue fixed or caught, cross-checked with truth | `tests/test_dbt_staging.py`: 13 passed |
+| Build survives a missing FRED source | tested by dropping `raw_fred` |
+| sqlfluff, ruff, zero dbt deprecation warnings | pass |
+
+**Known issues**
+- `dbt source freshness` reports ERROR STALE: extraction time is simulated and the data ends 2026-10-02. Plan: a catch-up mode for simulate-day used by the nightly job (Phase 5/6). See DECISIONS.md.
+
+**Next:** Phase 4, intermediate models and marts.

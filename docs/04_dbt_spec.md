@@ -34,6 +34,7 @@ dbt project lives in `transform/`. Layering rules:
 | `stg_erp__warehouses` | rename/cast |
 | `stg_erp__suppliers` | rename/cast |
 | `stg_erp__products` | trim + lowercase category, map via `category_mapping`; canonical SKU via `normalize_sku()` macro |
+| `stg_erp__product_price_history` | rename/cast; `normalize_sku()` (added in Phase 1/3: the ERP price-change log, basis for cost as of order date) |
 | `stg_erp__customers` | trim names, lowercase emails, flag `is_email_valid` |
 | `stg_erp__sales_orders` | dedupe on order_id keeping latest `updated_at` (planted issue 4) |
 | `stg_erp__sales_order_lines` | `normalize_sku()`; split negative quantities into `is_return_line` (issue 6) |

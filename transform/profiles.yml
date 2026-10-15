@@ -8,6 +8,12 @@ craftstones:
       path: "{{ env_var('DUCKDB_PATH', 'warehouse/craftstones.duckdb') }}"
       threads: 4
 
+    lint:
+      # Used only by sqlfluff's dbt templater to compile SQL; never holds data.
+      type: duckdb
+      path: ":memory:"
+      threads: 1
+
     ci:
       type: duckdb
       path: "{{ env_var('DUCKDB_PATH', 'warehouse/ci.duckdb') }}"

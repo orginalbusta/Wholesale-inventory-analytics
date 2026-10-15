@@ -1,0 +1,90 @@
+version: 2
+
+# dbt unit tests for the staging cleaning logic. Each feeds a few hand-written raw rows
+# through one model and checks the output.
+
+unit_tests:
+  - name: test_sku_variants_are_normalized
+    description: Planted issue 3. Mis-keyed SKUs normalize to the canonical XXX-XXX-0000 format; unknown codes stay visible.
+    model: stg_erp__sales_order_lines
+    given:
+      - input: source('erp', 'sales_order_lines')
+        rows:
+          - {order_line_id: L1, sku: "amt-pls-0042", quantity: 1, quantity_fulfilled: 1}
+          - {order_line_id: L2, sku: "AMTPLS0042", quantity: 1, quantity_fulfilled: 1}
+          - {order_line_id: L3, sku: " AMT-PLS-0042 ", quantity: 1, quantity_fulfilled: 1}
+          - {order_line_id: L4, sku: "Amt_Pls_0042", quantity: 1, quantity_fulfilled: 1}
+          - {order_line_id: L5, sku: "AMT-PLS-0042", quantity: 1, quantity_fulfilled: 1}
+          - {order_line_id: L6, sku: "xyz-9", quantity: 1, quantity_fulfilled: 1}
+    expect:
+      rows:
+        - {order_line_id: L1, sku: "AMT-PLS-0042"}
+        - {order_line_id: L2, sku: "AMT-PLS-0042"}
+        - {order_line_id: L3, sku: "AMT-PLS-0042"}
+        - {order_line_id: L4, sku: "AMT-PLS-0042"}
+        - {order_line_id: L5, sku: "AMT-PLS-0042"}
+        - {order_line_id: L6, sku: "XYZ-9"}
+
+  - name: test_negative_quantity_lines_become_returns
+    description: Planted issue 6. Negative-quantity lines are flagged as returns with positive quantities.
+    model: stg_erp__sales_order_lines
+    given:
+      - input: source('erp', 'sales_order_lines')
+        rows:
+          - {order_line_id: L1, sku: "AMT-PLS-0042", quantity: 12, quantity_fulfilled: 10, line_discount_pct: 5}
+          - {order_line_id: L2, sku: "AMT-PLS-0042", quantity: -3, quantity_fulfilled: -3, line_discount_pct: 0}
+    expect:
+      rows:
+        - {order_line_id: L1, is_return_line: false, quantity: 12, quantity_fulfilled: 10, line_discount_rate: 0.05}
+        - {order_line_id: L2, is_return_line: true, quantity: 3, quantity_fulfilled: 3, line_discount_rate: 0}
+
+  - name: test_mixed_date_formats_parse
+    description: Planted issue 8. Both YYYY-MM-DD and MM/DD/YYYY strings parse to the same date type.
+    model: stg_erp__purchase_orders
+    given:
+      - input: source('erp', 'purchase_orders')
+        rows:
+          - {po_id: P1, expected_arrival_date: "2025-03-04", updated_at: "2025-01-01 00:00:00"}
+          - {po_id: P2, expected_arrival_date: "03/04/2025", updated_at: "2025-01-01 00:00:00"}
+          - {po_id: P3, expected_arrival_date: "12/31/2025", updated_at: "2025-01-01 00:00:00"}
+    expect:
+      rows:
+        - {po_id: P1, expected_arrival_date: "2025-03-04"}
+        - {po_id: P2, expected_arrival_date: "2025-03-04"}
+        - {po_id: P3, expected_arrival_date: "2025-12-31"}
+
+  - name: test_latest_order_version_wins
+    description: Planted issues 4 and 5. Re-extracted copies and stale versions collapse to the latest status.
+    model: stg_erp__sales_orders
+    given:
+      - input: source('erp', 'sales_orders')
+        rows:
+          - {order_id: SO-1, status: placed, updated_at: "2025-05-01 09:00:00", _extracted_at: "2025-05-02 02:00:00"}
+          - {order_id: SO-1, status: shipped, updated_at: "2025-05-03 15:00:00", _extracted_at: "2025-05-04 02:00:00"}
+          - {order_id: SO-1, status: placed, updated_at: "2025-05-01 09:00:00", _extracted_at: "2025-05-04 02:00:00"}
+          - {order_id: SO-2, status: delivered, updated_at: "2025-05-06 12:00:00", _extracted_at: "2025-05-07 02:00:00"}
+          - {order_id: SO-2, status: delivered, updated_at: "2025-05-06 12:00:00", _extracted_at: "2025-05-07 02:00:00"}
+    expect:
+      rows:
+        - {order_id: SO-1, order_status: shipped}
+        - {order_id: SO-2, order_status: delivered}
+
+  - name: test_category_labels_map_to_canonical
+    description: Planted issue 2. Messy category labels map to canonical categories through the seed.
+    model: stg_erp__products
+    given:
+      - input: source('erp', 'products')
+        rows:
+          - {sku: "AMT-PLS-0001", category: "Polished  Stones ", updated_at: "2025-01-01 00:00:00"}
+          - {sku: "AMT-PLS-0002", category: "POLISHED", updated_at: "2025-01-01 00:00:00"}
+          - {sku: "RVR-DEC-0003", category: "decor and landscape", updated_at: "2025-01-01 00:00:00"}
+      - input: ref('category_mapping')
+        rows:
+          - {raw_category_normalized: "polished stones", category: "Polished Stones"}
+          - {raw_category_normalized: "polished", category: "Polished Stones"}
+          - {raw_category_normalized: "decor and landscape", category: "Decor & Landscape"}
+    expect:
+      rows:
+        - {sku: "AMT-PLS-0001", category: "Polished Stones"}
+        - {sku: "AMT-PLS-0002", category: "Polished Stones"}
+        - {sku: "RVR-DEC-0003", category: "Decor & Landscape"}

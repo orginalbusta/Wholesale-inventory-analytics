@@ -9,7 +9,8 @@ exclude_rules = ST06
 project_dir = transform
 profiles_dir = transform
 profile = craftstones
-target = dev
+# In-memory DuckDB target (profiles.yml): linting never locks the real warehouse.
+target = lint
 
 [sqlfluff:indentation]
 indent_unit = space

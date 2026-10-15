@@ -3,26 +3,46 @@ version: 2
 sources:
   - name: erp
     description: >
-      Raw ERP-style export for the Craftstones ideal-state redesign. All data is
-      synthetic; this is not the production schema at Craftstones. Loaded by dlt from
-      data/raw/erp/. Never modified by dbt. Contains deliberately planted
-      data-quality issues; see docs/03_data_spec.md.
+      Raw ERP-style extracts for the Craftstones ideal-state redesign. All data is
+      synthetic; this is not the production schema at Craftstones. Loaded by dlt
+      (ingestion/load_erp.py) as an append-only history: every extract file is appended,
+      so mutable tables hold one row per extracted version and staging keeps the latest.
+      Every row carries `_extracted_at` (simulated extraction time), `_run_id` (the
+      generator run) and `_dlt_load_id`. Never modified by dbt. Contains deliberately
+      planted data-quality issues; see docs/03_data_spec.md.
     schema: raw_erp
     loaded_at_field: _extracted_at
     tables:
       - name: warehouses
+        description: Stock locations (main warehouse and seasonal gem-show booths).
       - name: suppliers
+        description: Suppliers with country and purchasing currency.
       - name: products
+        description: Product master. One row per extracted version of a SKU.
+      - name: product_price_history
+        description: >
+          ERP price-change log: one row per cost or list-price change, plus each SKU's
+          initial price at setup. Used for cost as of order date.
       - name: customers
+        description: Customer master. One row per extracted version; contains duplicate business records (issue 1).
       - name: sales_orders
+        description: Sales order headers. One row per extracted version; status changes arrive late (issue 5).
         freshness:
           warn_after: {count: 2, period: day}
           error_after: {count: 5, period: day}
       - name: sales_order_lines
+        description: Sales order lines. Negative quantities are returns (issue 6); some SKUs are mis-keyed (issues 3, 9).
       - name: purchase_orders
+        description: Purchase order headers. `expected_arrival_date` is a string in mixed formats (issue 8).
       - name: purchase_order_lines
+        description: Purchase order lines. `quantity_received` is null until the PO arrives.
       - name: inventory_movements
+        description: Signed stock ledger, the source of truth for on-hand quantities.
         freshness:
           warn_after: {count: 2, period: day}
           error_after: {count: 5, period: day}
       - name: cycle_counts
+        description: Physical stock counts at the main warehouse; every variance has an adjustment movement.
+      - name: load_audit
+        description: Written by the loader, one row per loaded extract file (table, run_id, SHA-256, rows).
+        loaded_at_field: loaded_at
