@@ -18,9 +18,11 @@ RUN uv sync --frozen --no-dev --no-install-project
 
 COPY . .
 # dbt parse writes transform/target/manifest.json, which the Dagster code location reads at startup.
+# Absolute paths matter: dbt caches the parse (partial_parse.msgpack) with the project dir as given,
+# and Dagster runs dbt from inside transform/, where a relative "transform/seeds" doesn't exist.
 RUN uv sync --frozen --no-dev \
-    && dbt deps --project-dir transform --profiles-dir transform \
-    && dbt parse --project-dir transform --profiles-dir transform \
+    && dbt deps --project-dir /app/transform --profiles-dir /app/transform \
+    && dbt parse --project-dir /app/transform --profiles-dir /app/transform \
     && mkdir -p "$DAGSTER_HOME" \
     && cp orchestration/dagster.yaml "$DAGSTER_HOME/dagster.yaml"
 
