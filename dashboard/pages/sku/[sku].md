@@ -142,7 +142,7 @@ select
     fill_rate,
     po_count
 from marts.supplier_performance
-where supplier_id = '${sku_info[0].supplier_id}'
+where supplier_id = (select supplier_id from marts.inventory_health where sku = '${params.sku}')
 ```
 
 <BigValue data={supplier} value=on_time_rate title="On-time rate" fmt=pct0 />
