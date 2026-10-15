@@ -1,4 +1,5 @@
-# CI: lint, test, and build the full pipeline on small synthetic data. Hardened in Phase 7.
+# CI: lint, build the full pipeline on small synthetic data, run the Python tests, and check the
+# Dagster Docker stack. Runs on every PR and every push to main; target under 6 minutes.
 name: ci
 
 on:
@@ -7,39 +8,62 @@ on:
   push:
     branches: [main]
 
+permissions:
+  contents: read
+
 concurrency:
   group: ci-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
   build:
-    runs-on: ubuntu-latest
+    # Pinned rather than ubuntu-latest, so a runner image migration can't change builds silently.
+    runs-on: ubuntu-24.04
     timeout-minutes: 20
     env:
       DUCKDB_PATH: warehouse/ci.duckdb
       WAREHOUSE: duckdb
     steps:
       - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0  # PRs lint only the SQL they change, which needs the base branch
 
       - name: Install uv
         uses: astral-sh/setup-uv@v7
         with:
           enable-cache: true
 
+      - name: Cache dbt packages
+        uses: actions/cache@v6
+        with:
+          path: transform/dbt_packages
+          key: dbt-packages-${{ hashFiles('transform/packages.yml', 'transform/package-lock.yml') }}
+
       - name: Install dependencies
         run: |
           uv sync --all-groups
           uv run dbt deps --project-dir transform --profiles-dir transform
 
-      - name: Lint
+      - name: Lint Python
         run: |
           uv run ruff check .
           uv run ruff format --check .
-          uv run sqlfluff lint transform/models transform/tests transform/snapshots
 
-      - name: Unit tests (Python)
-        run: uv run pytest -q
+      - name: Lint SQL
+        # Pull requests lint the SQL files they change; pushes to main lint everything.
+        run: |
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            files=$(git diff --name-only --diff-filter=d "origin/${{ github.base_ref }}...HEAD" \
+              | grep -E '^transform/(models|tests|snapshots)/.*\.sql$' || true)
+            if [ -z "$files" ]; then echo "No SQL changes to lint."; exit 0; fi
+            echo "Linting changed SQL:"; echo "$files"
+            uv run sqlfluff lint $files
+          else
+            uv run sqlfluff lint transform/models transform/tests transform/snapshots
+          fi
 
+      # The pipeline runs before pytest so a broken model fails here, with dbt's own error and
+      # a summary table, instead of inside a pytest fixture.
       - name: Generate small synthetic data
         run: uv run python -m generator.generate --scale small --mode backfill
 
@@ -51,12 +75,20 @@ jobs:
         # warning if FRED is unreachable. PO costs use the committed FX seed either way.
 
       - name: dbt build
+        id: dbt
         run: uv run dbt build --project-dir transform --profiles-dir transform --target ci
 
+      - name: Explain dbt failures
+        if: failure() && steps.dbt.outcome == 'failure'
+        run: python3 scripts/dbt_failure_summary.py transform/target/run_results.json
+
+      - name: Python tests
+        run: uv run pytest -q
+
   docker:
-    # Phase 6 acceptance: `docker compose up` brings up the Dagster UI, and the full asset job
+    # `docker compose up` brings up the Dagster UI, and the full asset job
     # (generate -> load -> dbt build) succeeds inside the container.
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@v7

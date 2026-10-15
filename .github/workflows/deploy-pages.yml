@@ -22,7 +22,7 @@ concurrency:
 
 jobs:
   build:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04  # pinned, like ci.yml
     timeout-minutes: 30
     env:
       WAREHOUSE: duckdb
@@ -41,6 +41,12 @@ jobs:
           cache: npm
           cache-dependency-path: dashboard/package-lock.json
 
+      - name: Cache dbt packages
+        uses: actions/cache@v6
+        with:
+          path: transform/dbt_packages
+          key: dbt-packages-${{ hashFiles('transform/packages.yml', 'transform/package-lock.yml') }}
+
       - name: Install Python dependencies and dbt packages
         run: |
           uv sync
@@ -57,7 +63,12 @@ jobs:
           uv run python -m ingestion.load_fred
 
       - name: dbt build
+        id: dbt
         run: uv run dbt build --project-dir transform --profiles-dir transform
+
+      - name: Explain dbt failures
+        if: failure() && steps.dbt.outcome == 'failure'
+        run: python3 scripts/dbt_failure_summary.py transform/target/run_results.json
 
       - name: Source freshness
         # Reported, not blocking: a stale source shouldn't take the site down.
@@ -80,13 +91,18 @@ jobs:
           cp -r dashboard/build/. site/
           cp transform/target/static_index.html site/dbt-docs/index.html
 
+      - name: Keep the previous deploy's data and JS files
+        # Browsers cache pages and data/manifest.json for ~10 minutes; without the previous
+        # deploy's hashed files, those visitors would get errors until the cache expires.
+        run: python3 scripts/carry_over_deploy.py site "https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}"
+
       - uses: actions/upload-pages-artifact@v5
         with:
           path: site
 
   deploy:
     needs: build
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
