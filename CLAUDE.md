@@ -49,9 +49,10 @@ make setup          # uv sync + dbt deps
 make generate       # synthetic data, SCALE=small|medium (default small)
 make summary        # print sanity stats for the generated data
 make load           # dlt: data/raw -> warehouse raw schemas
-make dbt-build      # dbt build (models + tests + snapshots + seeds)
-make all            # generate + load + dbt-build
+make dbt-build      # dbt build, incremental (models + tests + snapshots + seeds)
+make all            # generate + load + dbt build --full-refresh (rebuild from scratch)
 make simulate-day   # append one day of new data (exercises incrementals + snapshots)
+make catch-up       # simulate every missing day through yesterday (used by the nightly deploy)
 make docs           # dbt docs generate
 make lint           # ruff + sqlfluff
 make test           # pytest

@@ -1,0 +1,6 @@
+# The dbt-built DuckDB warehouse (path is relative to this folder). The dashboard reads
+# only the `marts` schema; see the `inventory_dashboard` exposure in dbt.
+name: marts
+type: duckdb
+options:
+  filename: ../../../warehouse/craftstones.duckdb

@@ -32,7 +32,6 @@ tmp*/
 
 # Evidence
 dashboard/node_modules/
-dashboard/.evidence/
 dashboard/build/
 
 # OS / editors
@@ -40,3 +39,8 @@ dashboard/build/
 .vscode/
 .idea/
 .dlt/pipelines/
+
+# Local static preview of the published site (see .claude/launch.json)
+.preview/
+site/
+.claude/

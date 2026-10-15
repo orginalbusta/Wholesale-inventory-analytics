@@ -33,16 +33,27 @@ def test_supplier_lead_times_recovered(built):
     assert error.abs().max() < 0.35, error.describe()
 
 
-def test_quoted_lead_times_are_optimistic_and_unreliable_suppliers_are_late(built):
+def test_quoted_lead_times_are_optimistic(built):
     perf = query(
         built["root"],
-        "select supplier_id, on_time_rate, quoted_vs_actual_gap_days from marts.mart_supplier_performance",
+        "select supplier_id, quoted_vs_actual_gap_days from marts.mart_supplier_performance",
     )
-    truth = _truth(built, "supplier_lead_times")
-    merged = perf.merge(truth, on="supplier_id")
-    assert (merged["quoted_vs_actual_gap_days"] > 0).mean() >= 0.8
-    by_reliability = merged.groupby("is_unreliable")["on_time_rate"].mean()
-    assert by_reliability[True] < by_reliability[False]
+    assert (perf["quoted_vs_actual_gap_days"] > 0).mean() >= 0.8
+
+
+def test_lead_time_variability_recovered(built):
+    """Measured lead-time variability (coefficient of variation) tracks the true lognormal
+    sigma, so the reorder logic gives unreliable suppliers more safety stock.
+    (On-time rate isn't the right check: it depends mostly on lead-time length.)"""
+    perf = query(
+        built["root"],
+        "select supplier_id, lead_time_std_days / lead_time_mean_days as cv"
+        " from marts.mart_supplier_performance where received_po_count >= 10",
+    )
+    merged = perf.merge(_truth(built, "supplier_lead_times"), on="supplier_id")
+    assert merged["cv"].corr(merged["true_lead_time_sigma"]) > 0.7
+    by_reliability = merged.groupby("is_unreliable")["cv"].mean()
+    assert by_reliability[True] > by_reliability[False]
 
 
 def test_duplicate_customers_resolved_exactly(built):

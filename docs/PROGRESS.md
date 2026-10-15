@@ -9,7 +9,7 @@ Update at the end of every phase: what was built, acceptance check results, know
 | 2: Ingestion (dlt) | done | 2026-10-14 | All acceptance checks pass; 7 new pytest tests (25 total) |
 | 3: dbt staging, seeds, snapshots | done | 2026-10-15 | All acceptance checks pass; 13 new pytest tests (38 total) |
 | 4: Intermediate and marts | done | 2026-10-15 | All acceptance checks pass; 50 pytest tests; CI enabled |
-| 5: Dashboard, docs site, README v1 | not started | | |
+| 5: Dashboard, docs site, README v1 | in progress | 2026-10-15 | Built and verified locally; waiting on GitHub Pages being enabled for the first deploy |
 | 6: Orchestration and Docker | not started | | |
 | 7: CI hardening | not started | | |
 | 8: Snowflake target (optional) | not started | | |
@@ -165,3 +165,22 @@ Dead stock, A-class SKUs below reorder point, A-class stockout days, supplier on
 - Source freshness still reports stale (simulated extraction time); catch-up mode planned for Phase 5/6.
 
 **Next:** Phase 5, dashboard, docs site, README v1.
+
+## Phase 5: Dashboard, docs site, README v1 (2026-10-15, in progress)
+
+**Built**
+- Repo pushed to https://github.com/orginalbusta/Wholesale-inventory-analytics (commit authors set to Harsh Arya with his GitHub noreply email before the first push). First CI run on Linux: green in 2m30s.
+- `dashboard/`: Evidence (static edition) with 5 pages: Overview, Reorder (filters by category, supplier, ABC), Inventory health (ABC/XYZ heatmaps, dead stock, days of supply), Suppliers (reliability bubble chart, quoted vs. actual, quarterly trend, scorecard), Sales & customers (revenue by category with gem-show bands, channel and customer mix, RFM segments, At Risk call list). Disclaimer banner on every page.
+- `deploy-pages.yml`: push + nightly; medium backfill, catch-up through yesterday, load, dbt build, freshness (non-blocking), docs, Evidence build, publish (`/` dashboard, `/dbt-docs/`).
+- Generator `catch-up` mode (`make catch-up`) + byte-identical test vs. repeated simulate-day.
+- README v1: business problem, 4 findings from the medium marts, Mermaid architecture, data-quality table, pipeline facts, run instructions, design decisions. No `<<FILL` placeholders.
+
+**Checks so far**
+| Check | Result |
+|---|---|
+| Dashboard `npm run build:strict` | passes; all 5 pages render with no query errors in the browser (20 charts) |
+| Medium end-to-end (generate, load, dbt build) | 29s, PASS=257, WARN=4, ERROR=0 |
+| README numbers | queried from the medium marts; duplicates (13) and test count (51) re-verified |
+| Both sites live at public URLs | **pending**: needs Settings → Pages → Source: GitHub Actions, then a push |
+
+**Next:** enable GitHub Pages, push, confirm both URLs and README links, then close Phase 5.

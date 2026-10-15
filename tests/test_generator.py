@@ -18,7 +18,7 @@ import pandas as pd
 import pytest
 
 from generator.config import DEFAULT_CONFIG_PATH, REPO_ROOT, FxTable, load_config
-from generator.generate import backfill, simulate_day, simulate_through
+from generator.generate import backfill, catch_up, simulate_day, simulate_through
 
 TOLERANCE = 0.25
 
@@ -345,3 +345,14 @@ def test_simulate_day_appends_one_day(small, tmp_path):
     assert run in state
     simulate_day(cfg)
     assert (raw / "sales_orders" / f"{(day + timedelta(days=1)).isoformat()}.parquet").exists()
+
+
+def test_catch_up_equals_repeated_simulate_day(small, tmp_path):
+    """Catching up several days in one pass writes exactly what day-by-day runs would."""
+    one_by_one, at_once = tmp_path / "one_by_one", tmp_path / "at_once"
+    for root in (one_by_one, at_once):
+        shutil.copytree(small / "data", root / "data")
+    for _ in range(3):
+        simulate_day(_cfg(one_by_one))
+    catch_up(_cfg(at_once), _cfg(at_once).scale.end_date + timedelta(days=3))
+    assert _hash_tree(one_by_one) == _hash_tree(at_once)

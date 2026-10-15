@@ -12,9 +12,20 @@ days as (
 
 ),
 
+-- Each monthly rate applies until the next month in the seed; the last one stays in effect
+-- (the same forward-fill the generator uses), so days past the seed's end still convert.
 monthly as (
 
-    select * from {{ ref('fx_static_rates') }}
+    select
+        currency,
+        units_per_usd,
+        source,
+        month as valid_from,
+        coalesce(
+            lead(month) over (partition by currency order by month),
+            cast('9999-12-31' as date)
+        ) as valid_to
+    from {{ ref('fx_static_rates') }}
 
 ),
 
@@ -59,7 +70,9 @@ daily as (
 
     from days
     inner join monthly
-        on {{ dbt.date_trunc('month', 'days.date_day') }} = monthly.month
+        on
+            days.date_day >= monthly.valid_from
+            and days.date_day < monthly.valid_to
     left join fred_ranges
         on
             monthly.currency = fred_ranges.currency

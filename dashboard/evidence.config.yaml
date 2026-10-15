@@ -1,0 +1,19 @@
+# Evidence (open-source, static-site edition) for the Craftstones ideal-state redesign.
+# Built from the official evidence-dev/template `legacy` branch and installed from its
+# lockfile with `npm ci` (see docs/DECISIONS.md).
+
+appearance:
+  default: light
+  switcher: true
+
+deployment:
+  # GitHub Pages serves the site at https://<user>.github.io/<repo>/, so every link needs
+  # this prefix. `npm run dev` serves under the same path locally.
+  basePath: /Wholesale-inventory-analytics
+
+plugins:
+  components:
+    "@evidence-dev/core-components": {}
+
+  datasources:
+    "@evidence-dev/duckdb": {}

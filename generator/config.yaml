@@ -87,7 +87,7 @@ purchasing:  # the naive "gut feel" policy the platform will improve on
 inventory:
   cycle_count_period_days_a: 30
   cycle_count_period_days_other: 91
-  count_noise_range: [-0.03, 0.01]
+  count_noise_range: [-0.01, 0.005]  # per count; counts recur, so this compounds into annual shrinkage
   big_miss_rate: 0.004          # planted issue 10: rare large losses found by a count
 
 reference_changes:

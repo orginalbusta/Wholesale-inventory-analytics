@@ -160,7 +160,7 @@ The ERP's price-change log. dbt uses it for cost **as of order date**, because a
 | warehouse_id | str | |
 | sku | str | |
 | system_qty | float | ledger balance at count time |
-| counted_qty | float | system_qty plus shrinkage/noise (−3% to +1% typical; a few big misses) |
+| counted_qty | float | system_qty plus shrinkage/noise (−1% to +0.5% per count; a few big misses) |
 
 Each A-class SKU is counted ~monthly, others ~quarterly. Every count with a variance produces an `adjustment` movement.
 

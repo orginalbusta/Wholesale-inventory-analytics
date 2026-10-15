@@ -1,5 +1,33 @@
-# Dashboard (Phase 5)
+# Dashboard (Evidence)
 
-Evidence.dev project reading the DuckDB marts. Scaffold it in Phase 5 with the current Evidence template (check https://docs.evidence.dev for the latest setup command), point its DuckDB source at `../warehouse/craftstones.duckdb`, and query **only** `marts.*` tables.
+A static [Evidence](https://evidence.dev) site that reads **only** the dbt `marts` schema of the
+DuckDB warehouse (`../warehouse/craftstones.duckdb`). Every page carries the disclaimer: synthetic
+data, an ideal-state design, not the production system at Craftstones.
 
-Pages (see docs/05_roadmap.md, Phase 5): Overview, Reorder, Inventory health, Suppliers, Sales and customers.
+Pages: Overview (`pages/index.md`), Reorder, Inventory health, Suppliers, Sales & customers.
+Source queries live in `sources/marts/*.sql`; the dbt exposure `inventory_dashboard` lists the
+marts they depend on.
+
+## Run locally
+
+Build the warehouse first (`make all` from the repo root), then:
+
+```bash
+make dashboard       # npm ci, extract sources, start the dev server
+```
+
+## Build the static site
+
+```bash
+npm ci
+npm run sources
+npm run build:strict   # writes ./build; the deploy workflow publishes it to GitHub Pages
+```
+
+## Why this setup
+
+This is the open-source, static-site edition of Evidence, scaffolded from the official
+`evidence-dev/template` `legacy` branch. Evidence's newer product (Evidence Studio) is hosted and
+needs an account; the static edition builds plain files that GitHub Pages serves for free.
+Installs use the committed `package-lock.json` (`npm ci`): resolving fresh versions no longer
+works because some transitive packages have been unpublished. See `docs/DECISIONS.md`.
