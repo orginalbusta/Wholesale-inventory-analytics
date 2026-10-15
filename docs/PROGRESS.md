@@ -9,7 +9,7 @@ Update at the end of every phase: what was built, acceptance check results, know
 | 2: Ingestion (dlt) | done | 2026-10-14 | All acceptance checks pass; 7 new pytest tests (25 total) |
 | 3: dbt staging, seeds, snapshots | done | 2026-10-15 | All acceptance checks pass; 13 new pytest tests (38 total) |
 | 4: Intermediate and marts | done | 2026-10-15 | All acceptance checks pass; 50 pytest tests; CI enabled |
-| 5: Dashboard, docs site, README v1 | in progress | 2026-10-15 | Built and verified locally; waiting on GitHub Pages being enabled for the first deploy |
+| 5: Dashboard, docs site, README v1 | done | 2026-10-15 | Both sites live on GitHub Pages; nightly refresh; README v1 with real findings |
 | 6: Orchestration and Docker | not started | | |
 | 7: CI hardening | not started | | |
 | 8: Snowflake target (optional) | not started | | |
@@ -166,7 +166,7 @@ Dead stock, A-class SKUs below reorder point, A-class stockout days, supplier on
 
 **Next:** Phase 5, dashboard, docs site, README v1.
 
-## Phase 5: Dashboard, docs site, README v1 (2026-10-15, in progress)
+## Phase 5: Dashboard, docs site, README v1 (2026-10-15)
 
 **Built**
 - Repo pushed to https://github.com/orginalbusta/Wholesale-inventory-analytics (commit authors set to Harsh Arya with his GitHub noreply email before the first push). First CI run on Linux: green in 2m30s.
@@ -181,6 +181,10 @@ Dead stock, A-class SKUs below reorder point, A-class stockout days, supplier on
 | Dashboard `npm run build:strict` | passes; all 5 pages render with no query errors in the browser (20 charts) |
 | Medium end-to-end (generate, load, dbt build) | 29s, PASS=257, WARN=4, ERROR=0 |
 | README numbers | queried from the medium marts; duplicates (13) and test count (51) re-verified |
-| Both sites live at public URLs | **pending**: needs Settings → Pages → Source: GitHub Actions, then a push |
+| Both sites live at public URLs | yes: dashboard https://orginalbusta.github.io/Wholesale-inventory-analytics/ (all 5 pages 200, data through 2026-10-14, no console errors) and dbt docs at `/dbt-docs/`; first deploy 2m19s |
+| README links work, no `<<FILL` placeholders | yes: badges, live links and docs links all return 200; 0 placeholders |
+| CI on push | green (2m12s) |
 
-**Next:** enable GitHub Pages, push, confirm both URLs and README links, then close Phase 5.
+**Notes:** Pages source is "GitHub Actions". Minimum shippable version (Phases 0-5) is complete.
+
+**Next:** Phase 6, orchestration (Dagster) and Docker.
