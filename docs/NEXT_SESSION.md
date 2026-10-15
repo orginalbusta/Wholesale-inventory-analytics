@@ -20,8 +20,9 @@ From `docs/05_roadmap.md`. Accept when a PR with a deliberately broken model fai
 1. Pin `runs-on: ubuntu-24.04` in both workflows before the Ubuntu 26 runner migration (starts 2026-10-19).
 2. Lint only changed SQL on PRs; cache uv and dbt packages; keep CI under 6 minutes (now about 3, with the `build` and `docker` jobs in parallel).
 3. Optional slim CI: `dbt build --select state:modified+` against main's manifest (upload it as an artifact from the deploy).
-4. Prove it: open a PR with a broken model, confirm the failure message is readable, close it.
-5. Then: Phase 8 (Snowflake: Harsh starts the 30-day trial right before; auto-suspend + resource monitor), Phase 9 (README polish, license, final review).
+4. Stale-cache errors after a deploy (see PROGRESS Phase 6.5 known issues): GitHub Pages caches `data/manifest.json` for ~10 minutes, so returning visitors may briefly load the previous deploy's parquet paths. Look for a fix (e.g. cache-busting the manifest URL, or keeping the previous deploy's data files for one cycle).
+5. Prove it: open a PR with a broken model, confirm the failure message is readable, close it.
+6. Then: Phase 8 (Snowflake: Harsh starts the 30-day trial right before; auto-suspend + resource monitor), Phase 9 (README polish, license, final review).
 
 ## Open items for Harsh
 

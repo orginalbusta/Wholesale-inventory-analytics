@@ -237,5 +237,6 @@ Dead stock, A-class SKUs below reorder point, A-class stockout days, supplier on
 **Known issues**
 - Direct visits to a SKU URL return HTTP 404 (with the page rendered by the fallback), so search engines won't index SKU pages. Fine for a demo; noted in DECISIONS.md.
 - In a narrow window (under ~800px) wide tables make the whole page scroll sideways; this was already the case on the Reorder page.
+- Pre-existing, seen while checking the live site: for up to ~10 minutes after a deploy, a returning visitor can get query errors, because GitHub Pages caches `data/manifest.json` and the stale copy points at the previous deploy's parquet files. A reload after the cache expires fixes it. Candidate fix for Phase 7.
 
 **Next:** Phase 7, CI hardening.
