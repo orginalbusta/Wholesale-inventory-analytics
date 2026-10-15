@@ -51,7 +51,8 @@ SCHEMAS: dict[str, list[tuple[str, pa.DataType]]] = {
                   ("first_order_date", DATE), ("created_at", TS), ("updated_at", TS)],
     "sales_orders": [("order_id", STR), ("customer_id", STR), ("order_date", DATE), ("channel", STR),
                      ("warehouse_id", STR), ("status", STR), ("ship_date", DATE),
-                     ("order_discount_pct", FLOAT), ("sales_rep_id", STR), ("updated_at", TS)],
+                     ("order_discount_pct", FLOAT), ("sales_rep_id", STR),
+                     ("cancel_reason", STR), ("updated_at", TS)],
     "sales_order_lines": [("order_line_id", STR), ("order_id", STR), ("line_no", INT), ("sku", STR),
                           ("quantity", FLOAT), ("quantity_fulfilled", FLOAT), ("unit_price_usd", FLOAT),
                           ("line_discount_pct", FLOAT)],
@@ -253,6 +254,9 @@ def build_tables(
             ),
             "order_discount_pct": o["order_discount_pct"],
             "sales_rep_id": o["sales_rep_id"],
+            "cancel_reason": np.where(
+                ts["cancel_ts"] < cutoff, o["cancel_reason"].to_numpy(), None
+            ),
             "updated_at": o_updated,
             "_canonical_customer_id": c["customer_id"].to_numpy()[
                 o["cust_pos"].to_numpy().astype(int)

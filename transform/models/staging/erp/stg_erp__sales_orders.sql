@@ -31,6 +31,7 @@ renamed as (
         lower(trim(channel)) as channel,
         warehouse_id,
         lower(trim(status)) as order_status,
+        lower(trim(cancel_reason)) as cancel_reason,
         cast(ship_date as date) as ship_date,
         coalesce(order_discount_pct, 0) / 100.0 as order_discount_rate,
         sales_rep_id,

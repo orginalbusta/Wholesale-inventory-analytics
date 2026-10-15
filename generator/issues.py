@@ -178,6 +178,7 @@ def apply_issues(
         stale &= (copies["status"] != "placed").to_numpy()
         copies.loc[stale, "status"] = "placed"
         copies.loc[stale, "ship_date"] = pd.NaT
+        copies.loc[stale, "cancel_reason"] = None
         copies.loc[stale, "updated_at"] = copies.loc[stale, "_placed_ts"]
         log(
             4,

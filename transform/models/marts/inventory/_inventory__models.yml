@@ -1,0 +1,285 @@
+version: 2
+
+# Marts (inventory). Contract-enforced: column names and data types below are guaranteed to consumers.
+
+models:
+- name: mart_inventory_health
+  description: 'One row per launched SKU (all warehouses) as of the last day of data: stock, value, days of supply, last sale, dead-stock flag, ABC/XYZ class. Answers: what is on hand, what is it worth, and where is cash tied up in dead stock?'
+  columns:
+  - name: sku
+    data_type: varchar
+    description: Canonical SKU (FK dim_products).
+    data_tests:
+    - unique
+    - not_null
+    - relationships:
+        arguments:
+          to: ref('dim_products')
+          field: sku
+  - name: product_name
+    data_type: varchar
+    description: Product name.
+  - name: category
+    data_type: varchar
+    description: Canonical product category.
+  - name: supplier_id
+    data_type: varchar
+    description: Supplier ID (FK dim_suppliers).
+  - name: is_active
+    data_type: boolean
+    description: False once discontinued.
+  - name: abc_class
+    data_type: varchar
+    description: 'A/B/C by trailing-12-month revenue: A = SKUs making up the first 80% of revenue, B = next 15%, C = the rest.'
+    data_tests:
+    - accepted_values:
+        arguments:
+          values:
+          - A
+          - B
+          - C
+  - name: xyz_class
+    data_type: varchar
+    description: 'X/Y/Z by demand variability: CV of weekly demand < 0.5, 0.5-1.0, > 1.0.'
+  - name: on_hand_qty
+    data_type: double
+    description: Stock on hand at end of day.
+    data_tests:
+    - dbt_expectations.expect_column_values_to_be_between:
+        arguments:
+          min_value: 0
+  - name: on_hand_value_usd
+    data_type: double
+    description: On-hand quantity x unit cost.
+  - name: on_order_qty
+    data_type: double
+    description: Quantity on open (not yet received) purchase orders.
+  - name: avg_daily_demand_90d
+    data_type: double
+    description: Average daily true demand (incl. unfilled) over the last 90 days.
+  - name: days_of_supply
+    data_type: double
+    description: On-hand quantity divided by average daily demand; null when there is no recent demand.
+  - name: last_sale_date
+    data_type: date
+    description: Most recent day with fulfilled sales.
+  - name: days_since_last_sale
+    data_type: integer
+    description: Days from the last sale to the as-of date.
+  - name: is_dead_stock
+    data_type: boolean
+    description: On hand > 0 and no sale in the last 180 days (var dead_stock_days).
+  - name: as_of_date
+    data_type: date
+    description: Last day of data. All trailing-window metrics end here.
+- name: mart_reorder_recommendations
+  description: 'One row per active SKU: reorder point from demand AND supplier lead-time variability, the ABC/XYZ service level, current position, and a reorder-now flag with a suggested quantity. Demand inputs are swappable for forecasts via demand_source.'
+  columns:
+  - name: sku
+    data_type: varchar
+    description: Canonical SKU (FK dim_products).
+    data_tests:
+    - unique
+    - not_null
+    - relationships:
+        arguments:
+          to: ref('dim_products')
+          field: sku
+  - name: category
+    data_type: varchar
+    description: Canonical product category.
+  - name: supplier_id
+    data_type: varchar
+    description: Supplier ID (FK dim_suppliers).
+  - name: abc_class
+    data_type: varchar
+    description: 'A/B/C by trailing-12-month revenue: A = SKUs making up the first 80% of revenue, B = next 15%, C = the rest.'
+  - name: xyz_class
+    data_type: varchar
+    description: 'X/Y/Z by demand variability: CV of weekly demand < 0.5, 0.5-1.0, > 1.0.'
+  - name: target_service_level
+    data_type: double
+    description: Target probability of not stocking out, from the ABC x XYZ policy seed.
+  - name: z_score
+    data_type: double
+    description: Standard normal quantile for the target service level.
+  - name: demand_mean_daily
+    data_type: double
+    description: 'd: mean daily true demand over the demand window (incl. unfilled demand).'
+  - name: demand_std_daily
+    data_type: double
+    description: 'sigma_d: standard deviation of daily true demand over the demand window.'
+  - name: demand_source
+    data_type: varchar
+    description: 'Where the demand inputs come from: `historical_90d` today, `forecast_<model>` once the forecasting layer exists.'
+    data_tests:
+    - accepted_values:
+        arguments:
+          values:
+          - historical_90d
+  - name: lead_time_mean_days
+    data_type: double
+    description: 'L: mean actual lead time in days.'
+  - name: lead_time_std_days
+    data_type: double
+    description: 'sigma_L: standard deviation of actual lead time in days.'
+  - name: lead_time_source
+    data_type: varchar
+    description: '`actual_trailing_12m`, `actual_all_history`, or `quoted` when the supplier has no received POs.'
+  - name: safety_stock_qty
+    data_type: double
+    description: z x sqrt(L x sigma_d^2 + d^2 x sigma_L^2).
+    data_tests:
+    - dbt_expectations.expect_column_values_to_be_between:
+        arguments:
+          min_value: 0
+  - name: reorder_point_qty
+    data_type: double
+    description: d x L + safety stock.
+    data_tests:
+    - dbt_expectations.expect_column_values_to_be_between:
+        arguments:
+          min_value: 0
+  - name: on_hand_qty
+    data_type: double
+    description: Stock on hand at end of day.
+  - name: on_order_qty
+    data_type: double
+    description: Quantity on open (not yet received) purchase orders.
+  - name: inventory_position
+    data_type: double
+    description: On hand plus on order.
+  - name: reorder_now
+    data_type: boolean
+    description: Inventory position is at or below the reorder point (and the SKU has demand).
+  - name: case_pack_qty
+    data_type: integer
+    description: Units per case pack; orders are rounded up to whole packs.
+  - name: suggested_order_qty
+    data_type: double
+    description: Quantity to order now, rounded up to whole case packs; 0 unless reorder_now.
+    data_tests:
+    - dbt_expectations.expect_column_values_to_be_between:
+        arguments:
+          min_value: 0
+  - name: as_of_date
+    data_type: date
+    description: Last day of data. All trailing-window metrics end here.
+- name: mart_stockouts
+  description: 'One row per SKU per month on sale: stockout days, zero-stock days at the main warehouse, unfilled demand and the revenue it represents.'
+  data_tests:
+  - dbt_utils.unique_combination_of_columns:
+      arguments:
+        combination_of_columns:
+        - sku
+        - month_start_date
+  columns:
+  - name: sku
+    data_type: varchar
+    description: Canonical SKU (FK dim_products).
+    data_tests:
+    - relationships:
+        arguments:
+          to: ref('dim_products')
+          field: sku
+  - name: month_start_date
+    data_type: date
+    description: First day of the month.
+  - name: category
+    data_type: varchar
+    description: Canonical product category.
+  - name: abc_class
+    data_type: varchar
+    description: 'A/B/C by trailing-12-month revenue: A = SKUs making up the first 80% of revenue, B = next 15%, C = the rest.'
+  - name: days_on_sale
+    data_type: integer
+    description: Days in the month the SKU was on sale.
+  - name: demand_days
+    data_type: integer
+    description: Days in the month with any demand.
+  - name: stockout_days
+    data_type: integer
+    description: Days with demand that could not be filled.
+    data_tests:
+    - dbt_expectations.expect_column_values_to_be_between:
+        arguments:
+          min_value: 0
+          max_value: 31
+  - name: zero_stock_days_main
+    data_type: integer
+    description: Days the main warehouse (SD-MAIN) ended with nothing on hand.
+  - name: ordered_qty
+    data_type: double
+    description: 'True demand: quantity ordered, incl. unfilled and stockout-cancelled orders.'
+  - name: fulfilled_qty
+    data_type: double
+    description: Quantity shipped.
+  - name: unfilled_qty
+    data_type: double
+    description: Demand that could not be filled.
+  - name: fill_rate
+    data_type: double
+    description: Quantity received (or fulfilled) divided by quantity ordered.
+    data_tests:
+    - dbt_expectations.expect_column_values_to_be_between:
+        arguments:
+          min_value: 0
+          max_value: 1
+  - name: unfilled_revenue_estimate_usd
+    data_type: double
+    description: Unfilled demand valued at the prices customers were quoted.
+- name: mart_cycle_count_variance
+  description: 'One row per SKU x warehouse x month with cycle counts: shrinkage quantity and value, net variance, and big misses (planted issue 10).'
+  data_tests:
+  - dbt_utils.unique_combination_of_columns:
+      arguments:
+        combination_of_columns:
+        - sku
+        - warehouse_id
+        - month_start_date
+  columns:
+  - name: sku
+    data_type: varchar
+    description: Canonical SKU (FK dim_products).
+    data_tests:
+    - relationships:
+        arguments:
+          to: ref('dim_products')
+          field: sku
+  - name: warehouse_id
+    data_type: varchar
+    description: Warehouse ID (FK dim_warehouses).
+  - name: month_start_date
+    data_type: date
+    description: First day of the month.
+  - name: n_counts
+    data_type: integer
+    description: Cycle counts in the month.
+  - name: n_counts_with_variance
+    data_type: integer
+    description: Counts where counted quantity differed from the ledger.
+  - name: n_big_misses
+    data_type: integer
+    description: Counts that found more than 15% less than the ledger.
+  - name: system_qty
+    data_type: double
+    description: Ledger quantity at count time.
+  - name: net_variance_qty
+    data_type: double
+    description: Counted minus ledger quantity, summed.
+  - name: shrinkage_qty
+    data_type: double
+    description: Stock the ledger expected but the count didn't find.
+    data_tests:
+    - dbt_expectations.expect_column_values_to_be_between:
+        arguments:
+          min_value: 0
+  - name: shrinkage_value_usd
+    data_type: double
+    description: Shrinkage valued at the unit cost on the count date.
+  - name: net_variance_value_usd
+    data_type: double
+    description: Net variance valued at the unit cost on the count date.
+  - name: variance_pct
+    data_type: double
+    description: Net variance divided by ledger quantity.

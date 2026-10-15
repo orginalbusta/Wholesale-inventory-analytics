@@ -1,0 +1,122 @@
+version: 2
+
+# Marts (suppliers). Contract-enforced: column names and data types below are guaranteed to consumers.
+
+models:
+- name: mart_supplier_performance
+  description: 'One row per supplier over all purchase orders: spend, on-time rate, actual vs. quoted lead time, lead-time variability, fill rate and short shipments.'
+  columns:
+  - name: supplier_id
+    data_type: varchar
+    description: Supplier ID (FK dim_suppliers).
+    data_tests:
+    - unique
+    - not_null
+    - relationships:
+        arguments:
+          to: ref('dim_suppliers')
+          field: supplier_id
+  - name: supplier_name
+    data_type: varchar
+    description: Supplier name.
+  - name: country
+    data_type: varchar
+    description: Supplier country.
+  - name: currency
+    data_type: varchar
+    description: Currency of the purchase order.
+  - name: po_count
+    data_type: bigint
+    description: Purchase orders placed.
+  - name: received_po_count
+    data_type: bigint
+    description: Purchase orders received.
+  - name: spend_usd
+    data_type: double
+    description: Purchase value in USD.
+  - name: on_time_rate
+    data_type: double
+    description: Share of received POs that arrived on time.
+    data_tests:
+    - dbt_expectations.expect_column_values_to_be_between:
+        arguments:
+          min_value: 0
+          max_value: 1
+  - name: lead_time_mean_days
+    data_type: double
+    description: 'L: mean actual lead time in days.'
+  - name: lead_time_std_days
+    data_type: double
+    description: 'sigma_L: standard deviation of actual lead time in days.'
+  - name: quoted_lead_time_mean_days
+    data_type: double
+    description: Mean quoted lead time in days.
+  - name: quoted_vs_actual_gap_days
+    data_type: double
+    description: Mean actual minus quoted lead time; positive = quotes are optimistic.
+  - name: fill_rate
+    data_type: double
+    description: Quantity received (or fulfilled) divided by quantity ordered.
+    data_tests:
+    - dbt_expectations.expect_column_values_to_be_between:
+        arguments:
+          min_value: 0
+          max_value: 1.05
+  - name: short_shipment_count
+    data_type: bigint
+    description: POs where less was received than ordered.
+- name: mart_supplier_performance_quarterly
+  description: One row per supplier per quarter (by PO order date), same metrics as mart_supplier_performance, for trends.
+  data_tests:
+  - dbt_utils.unique_combination_of_columns:
+      arguments:
+        combination_of_columns:
+        - supplier_id
+        - quarter_start_date
+  columns:
+  - name: supplier_id
+    data_type: varchar
+    description: Supplier ID (FK dim_suppliers).
+    data_tests:
+    - relationships:
+        arguments:
+          to: ref('dim_suppliers')
+          field: supplier_id
+  - name: quarter_start_date
+    data_type: date
+    description: First day of the quarter.
+  - name: po_count
+    data_type: bigint
+    description: Purchase orders placed.
+  - name: received_po_count
+    data_type: bigint
+    description: Purchase orders received.
+  - name: spend_usd
+    data_type: double
+    description: Purchase value in USD.
+  - name: on_time_rate
+    data_type: double
+    description: Share of received POs that arrived on time.
+    data_tests:
+    - dbt_expectations.expect_column_values_to_be_between:
+        arguments:
+          min_value: 0
+          max_value: 1
+  - name: lead_time_mean_days
+    data_type: double
+    description: 'L: mean actual lead time in days.'
+  - name: lead_time_std_days
+    data_type: double
+    description: 'sigma_L: standard deviation of actual lead time in days.'
+  - name: quoted_lead_time_mean_days
+    data_type: double
+    description: Mean quoted lead time in days.
+  - name: quoted_vs_actual_gap_days
+    data_type: double
+    description: Mean actual minus quoted lead time; positive = quotes are optimistic.
+  - name: fill_rate
+    data_type: double
+    description: Quantity received (or fulfilled) divided by quantity ordered.
+  - name: short_shipment_count
+    data_type: bigint
+    description: POs where less was received than ordered.

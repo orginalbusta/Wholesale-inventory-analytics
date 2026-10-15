@@ -1,13 +1,11 @@
 # CI: lint, test, and build the full pipeline on small synthetic data. Hardened in Phase 7.
 name: ci
 
-# Manual-only until Phase 4 passes (the generator and models don't exist yet, so CI would fail).
-# Phase 4: switch to the commented triggers below.
 on:
   workflow_dispatch:
-  # pull_request:
-  # push:
-  #   branches: [main]
+  pull_request:
+  push:
+    branches: [main]
 
 concurrency:
   group: ci-${{ github.ref }}

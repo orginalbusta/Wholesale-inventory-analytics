@@ -1,0 +1,139 @@
+version: 2
+
+# Marts (sales). Contract-enforced: column names and data types below are guaranteed to consumers.
+
+models:
+- name: mart_sales_monthly
+  description: 'One row per month x category x channel x customer type: orders, units, revenue, COGS, gross margin and unfilled revenue.'
+  data_tests:
+  - dbt_utils.unique_combination_of_columns:
+      arguments:
+        combination_of_columns:
+        - month_start_date
+        - category
+        - channel
+        - customer_type
+  columns:
+  - name: month_start_date
+    data_type: date
+    description: First day of the month.
+  - name: category
+    data_type: varchar
+    description: Canonical product category.
+    data_tests:
+    - accepted_values:
+        arguments:
+          values:
+          - Polished Stones
+          - Rough Minerals
+          - Crystal Clusters
+          - Tumbled Stones
+          - Jewelry Components
+          - Decor & Landscape
+  - name: channel
+    data_type: varchar
+    description: 'Sales channel: phone_email, b2b_portal, gem_show or marketplace.'
+  - name: customer_type
+    data_type: varchar
+    description: Customer segment (canonical record).
+  - name: order_count
+    data_type: bigint
+    description: Distinct orders.
+  - name: customer_count
+    data_type: bigint
+    description: Distinct canonical customers.
+  - name: units_net
+    data_type: double
+    description: Units shipped minus units returned.
+  - name: gross_revenue_usd
+    data_type: double
+    description: Quantity fulfilled x unit price, before discounts (negative for return lines).
+  - name: net_revenue_usd
+    data_type: double
+    description: Revenue after line and order discounts and refunds.
+  - name: cogs_usd
+    data_type: double
+    description: Cost of goods sold at the unit cost in effect on the order date (negative for return lines).
+  - name: gross_margin_usd
+    data_type: double
+    description: Net revenue minus COGS.
+  - name: gross_margin_pct
+    data_type: double
+    description: Gross margin divided by net revenue.
+  - name: unfilled_revenue_usd
+    data_type: double
+    description: Unfilled quantity valued at the quoted net price.
+- name: mart_customer_rfm
+  description: 'One row per canonical customer: trailing-12-month recency, frequency and monetary value, 1-5 scores, and a segment label.'
+  columns:
+  - name: customer_id
+    data_type: varchar
+    description: Customer ID.
+    data_tests:
+    - unique
+    - not_null
+    - relationships:
+        arguments:
+          to: ref('dim_customers')
+          field: customer_id
+  - name: customer_name
+    data_type: varchar
+    description: Customer business name (canonical record).
+  - name: customer_type
+    data_type: varchar
+    description: Customer segment (canonical record).
+  - name: state
+    data_type: varchar
+    description: US state code.
+  - name: first_order_date
+    data_type: date
+    description: First order date.
+  - name: last_order_date
+    data_type: date
+    description: Most recent order date.
+  - name: recency_days
+    data_type: integer
+    description: Days since the last order.
+  - name: frequency_12m
+    data_type: bigint
+    description: Orders in the trailing 12 months.
+  - name: monetary_12m_usd
+    data_type: double
+    description: Net revenue in the trailing 12 months.
+  - name: recency_score
+    data_type: integer
+    description: Recency quintile, 1-5 (5 = most recent).
+    data_tests:
+    - dbt_expectations.expect_column_values_to_be_between:
+        arguments:
+          min_value: 1
+          max_value: 5
+  - name: frequency_score
+    data_type: integer
+    description: Frequency quintile, 1-5 (5 = most orders).
+    data_tests:
+    - dbt_expectations.expect_column_values_to_be_between:
+        arguments:
+          min_value: 1
+          max_value: 5
+  - name: monetary_score
+    data_type: integer
+    description: Monetary quintile, 1-5 (5 = highest revenue).
+    data_tests:
+    - dbt_expectations.expect_column_values_to_be_between:
+        arguments:
+          min_value: 1
+          max_value: 5
+  - name: segment
+    data_type: varchar
+    description: 'RFM segment: New, Champions, Loyal, At Risk, Hibernating or Needs Attention.'
+    data_tests:
+    - accepted_values:
+        arguments:
+          values:
+          - New
+          - Champions
+          - Loyal
+          - At Risk
+          - Hibernating
+          - Needs Attention

@@ -8,7 +8,7 @@ Update at the end of every phase: what was built, acceptance check results, know
 | 1: Synthetic data generator | done | 2026-10-14 | All acceptance checks pass; 18 pytest tests (see below) |
 | 2: Ingestion (dlt) | done | 2026-10-14 | All acceptance checks pass; 7 new pytest tests (25 total) |
 | 3: dbt staging, seeds, snapshots | done | 2026-10-15 | All acceptance checks pass; 13 new pytest tests (38 total) |
-| 4: Intermediate and marts | not started | | |
+| 4: Intermediate and marts | done | 2026-10-15 | All acceptance checks pass; 50 pytest tests; CI enabled |
 | 5: Dashboard, docs site, README v1 | not started | | |
 | 6: Orchestration and Docker | not started | | |
 | 7: CI hardening | not started | | |
@@ -138,3 +138,30 @@ Timing: small ERP load 2.9s, FRED 4-6s (network); medium ERP load 3.6s for 679k 
 - `dbt source freshness` reports ERROR STALE: extraction time is simulated and the data ends 2026-10-02. Plan: a catch-up mode for simulate-day used by the nightly job (Phase 5/6). See DECISIONS.md.
 
 **Next:** Phase 4, intermediate models and marts.
+
+## Phase 4: Intermediate and marts (2026-10-15)
+
+**Built**
+- 12 intermediate models (tables): calendar, cost history, customer de-duplication, enriched and orphan order lines, daily FX, enriched PO lines, daily inventory balance, daily true demand, ABC/XYZ, reorder inputs, RFM scores.
+- 17 contract-enforced marts: `dim_date`, `dim_products`, `dim_customers`, `dim_suppliers`, `dim_warehouses`, `fct_order_lines` (incremental), `fct_orders`, `fct_purchase_order_lines`, `fct_inventory_daily` (incremental), `mart_inventory_health`, `mart_reorder_recommendations`, `mart_stockouts`, `mart_cycle_count_variance`, `mart_supplier_performance` (+ quarterly), `mart_sales_monthly`, `mart_customer_rfm`. Every mart column has a data type and description.
+- Macros `safety_stock`, `round_up_to_case_pack`, `supplier_performance_metrics`; 5 singular tests; 3 more unit tests (reorder math, ABC boundaries, RFM segments); dashboard exposure; `overview.md` docs landing page.
+- Generator: `cancel_reason` on orders, plus four realism fixes found by truth-recovery tests (see DECISIONS.md).
+- `ci.yml` now runs on pull requests and pushes to main.
+
+**Acceptance checks**
+| Check | Result |
+|---|---|
+| Full `dbt build` on `small` | PASS=257, WARN=4 (the planted issues), ERROR=0 |
+| Full `dbt build` on `medium` | PASS=257, WARN=4, ERROR=0 in 17s (2.9M inventory-day rows, 280k order lines) |
+| `simulate-day && load && dbt build` processes only new and late-updated rows | `tests/test_dbt_incremental.py`: incremental run touched < 10% of order lines, late status changes applied, both incremental tables equal a full refresh |
+| `dbt docs generate` | succeeds |
+| Analysis recovers generator truth | `tests/test_dbt_marts.py`: supplier lead times within 10% on average, duplicate customers recovered exactly, A-class matches true demand weights, total demand within 15% of expected |
+| sqlfluff, ruff, pytest | clean; 50 tests pass |
+
+**What the small-scale marts show (synthetic; sanity check, not README findings yet)**
+Dead stock, A-class SKUs below reorder point, A-class stockout days, supplier on-time range from 7% to 85%, quoted lead times optimistic by ~7 days on average. README numbers will be pulled from the medium-scale marts in Phase 5.
+
+**Known issues**
+- Source freshness still reports stale (simulated extraction time); catch-up mode planned for Phase 5/6.
+
+**Next:** Phase 5, dashboard, docs site, README v1.

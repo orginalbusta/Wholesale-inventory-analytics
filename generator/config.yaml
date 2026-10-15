@@ -42,7 +42,7 @@ reference:
   discontinued_in_range_share: 0.08
 
 demand:
-  top20_revenue_share: 0.79     # Zipf exponent is solved so the top 20% of SKUs target this revenue share
+  top20_revenue_share: 0.77     # Zipf exponent is solved so the top 20% of SKUs target this revenue share
   qty_dispersion: 0.6           # negative binomial size parameter for line quantities; lower = lumpier
   show_multiplier_range: [2.5, 4.0]
   show_category_share: 0.85     # share of normal demand that comes from show-relevant categories

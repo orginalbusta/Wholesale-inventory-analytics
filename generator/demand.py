@@ -44,7 +44,7 @@ class DemandModel:
     lifecycle: np.ndarray  # [day, sku]
     type_affinity: np.ndarray  # [type, sku]
     show_mask: np.ndarray  # [sku] True for show-relevant categories
-    order_index: np.ndarray  # [day] aggregate demand index x weekday factor
+    order_index_by_type: np.ndarray  # [type, day] demand index for each customer type x weekday
     show_pos: np.ndarray  # [day] index into ref.shows, or -1
     show_order_rate: np.ndarray  # [day] expected gem-show orders
     rate_scale: float  # converts a customer's raw rate into orders/day
@@ -108,11 +108,20 @@ def build_demand_model(cfg: Config, ref: Reference, tl: Timelines) -> DemandMode
     seasonal_base = season * trend * lifecycle
     weights = (revenue_weight / (expected_qty * price0))[None, :] * seasonal_base * price_effect
 
-    # Aggregate demand index: revenue-weighted seasonality, normalized to 1 over the range
+    # Customer-type affinity per SKU, and show-category mask
+    type_affinity = np.array([np.array(CUSTOMER_TYPES[t][4])[cat] for t in CUSTOMER_TYPE_NAMES])
+    show_mask = p["is_show_category"].to_numpy()
+
+    # Demand indexes, normalized to 1 over the range. Each customer type orders more often
+    # when the categories it buys are in season (landscapers in spring, jewelry makers before
+    # the holidays); the aggregate index drives gem-show volume.
+    weekday = WEEKDAY_WEIGHTS / WEEKDAY_WEIGHTS.mean()
     agg = (seasonal_base * revenue_weight[None, :]).sum(axis=1)
     agg = agg / agg[in_range].mean()
-    weekday = WEEKDAY_WEIGHTS / WEEKDAY_WEIGHTS.mean()
     order_index = agg * weekday[days.weekday]
+    by_type = (seasonal_base * revenue_weight[None, :]) @ type_affinity.T  # [day, type]
+    by_type = by_type / by_type[in_range].mean(axis=0, keepdims=True)
+    order_index_by_type = (by_type * weekday[days.weekday][:, None]).T  # [type, day]
 
     # Gem shows active on each day
     show_pos = np.full(t_count, -1)
@@ -128,42 +137,38 @@ def build_demand_model(cfg: Config, ref: Reference, tl: Timelines) -> DemandMode
     show_extra = np.where(show_pos >= 0, share * (show_mult - 1.0) * agg, 0.0)
 
     # Calibrate: expected orders over the configured range = target_orders
-    activity = _customer_activity(ref, days)
+    activity = _customer_activity(ref, days).astype(float)
     rate_raw = ref.customers["order_rate_raw"].to_numpy()
-    lam_sum = activity.astype(float) @ rate_raw
-    base = cfg.scale.target_orders / (order_index[in_range].sum() + show_extra[in_range].sum())
-    rate_scale = base * order_index[in_range].sum() / (lam_sum * order_index)[in_range].sum()
-    show_order_rate = base * show_extra
-
-    # Lines per order: 1 + Poisson(extra x type multiplier). Solve `extra` so the expected mean
-    # matches the target, then add a little for lines lost when an order samples the same SKU
-    # twice (duplicates are merged into one line).
     ctype_pos = (
         ref.customers["customer_type"]
         .map({t: i for i, t in enumerate(CUSTOMER_TYPE_NAMES)})
         .to_numpy()
     )
-    lines_mult = np.array([CUSTOMER_TYPES[t][2] for t in CUSTOMER_TYPE_NAMES])[ctype_pos]
-    normal_orders = rate_scale * (activity[in_range].astype(float) @ rate_raw)
-    weighted = (activity[in_range].astype(float) @ (rate_raw * lines_mult)) * rate_scale
-    n_normal = (normal_orders * order_index[in_range]).sum()
+    type_onehot = np.eye(len(CUSTOMER_TYPE_NAMES))[ctype_pos]  # [customer, type]
+    lam_by_type = activity @ (rate_raw[:, None] * type_onehot)  # [day, type]
+    base = cfg.scale.target_orders / (order_index[in_range].sum() + show_extra[in_range].sum())
+    unscaled_orders = (lam_by_type * order_index_by_type.T).sum(axis=1)  # [day]
+    rate_scale = base * order_index[in_range].sum() / unscaled_orders[in_range].sum()
+    show_order_rate = base * show_extra
+
+    # Lines per order: 1 + Poisson(extra x type multiplier). Solve `extra` so the expected mean
+    # matches the target, then add a little for lines lost when an order samples the same SKU
+    # twice (duplicates are merged into one line).
+    lines_mult_by_type = np.array([CUSTOMER_TYPES[t][2] for t in CUSTOMER_TYPE_NAMES])
+    orders_by_type = rate_scale * lam_by_type * order_index_by_type.T  # [day, type]
+    n_normal = orders_by_type[in_range].sum()
     n_show = show_order_rate[in_range].sum()
-    mean_mult = ((weighted * order_index[in_range]).sum() + n_show * SHOW_LINES_MULTIPLIER) / (
-        n_normal + n_show
-    )
+    mean_mult = (
+        (orders_by_type[in_range] * lines_mult_by_type[None, :]).sum()
+        + n_show * SHOW_LINES_MULTIPLIER
+    ) / (n_normal + n_show)
     target_mean = cfg.scale.target_order_lines / cfg.scale.target_orders
     lines_mean = 1 + (target_mean - 1) / mean_mult * DUPLICATE_SKU_CORRECTION
 
-    # Customer-type affinity per SKU, and show-category mask
-    type_affinity = np.array([np.array(CUSTOMER_TYPES[t][4])[cat] for t in CUSTOMER_TYPE_NAMES])
-    show_mask = p["is_show_category"].to_numpy()
-
     # Expected units per SKU-day (truth), split into normal and gem-show demand
-    ctype = ref.customers["customer_type"].map({t: i for i, t in enumerate(CUSTOMER_TYPE_NAMES)})
     normal_units = np.zeros((t_count, len(p)))
     for g, tname in enumerate(CUSTOMER_TYPE_NAMES):
-        in_type = (ctype.to_numpy() == g).astype(float)
-        orders_g = rate_scale * order_index * (activity.astype(float) @ (rate_raw * in_type))
+        orders_g = orders_by_type[:, g]
         _, qty_mult, lines_mult, _, _ = CUSTOMER_TYPES[tname]
         lines_g = 1 + (lines_mean - 1) * lines_mult
         pg = weights * type_affinity[g][None, :]
@@ -197,7 +202,7 @@ def build_demand_model(cfg: Config, ref: Reference, tl: Timelines) -> DemandMode
         lifecycle=lifecycle,
         type_affinity=type_affinity,
         show_mask=show_mask,
-        order_index=order_index,
+        order_index_by_type=order_index_by_type,
         show_pos=show_pos,
         show_order_rate=show_order_rate,
         rate_scale=float(rate_scale),

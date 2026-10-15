@@ -1,0 +1,619 @@
+version: 2
+
+# Marts (core). Contract-enforced: column names and data types below are guaranteed to consumers.
+
+models:
+- name: dim_date
+  description: One row per day the data covers, with calendar, fiscal and gem-show fields.
+  columns:
+  - name: date_day
+    data_type: date
+    description: Calendar day.
+    data_tests:
+    - unique
+    - not_null
+  - name: week_start_date
+    data_type: date
+    description: First day (Monday) of the week.
+  - name: month_start_date
+    data_type: date
+    description: First day of the month.
+  - name: quarter_start_date
+    data_type: date
+    description: First day of the quarter.
+  - name: calendar_year
+    data_type: integer
+    description: Calendar year.
+  - name: calendar_quarter
+    data_type: integer
+    description: Quarter number (1-4).
+  - name: calendar_month
+    data_type: integer
+    description: Month number (1-12).
+  - name: day_of_month
+    data_type: integer
+    description: Day of the month.
+  - name: iso_day_of_week
+    data_type: integer
+    description: ISO day of week (1 = Monday, 7 = Sunday).
+  - name: is_weekend
+    data_type: boolean
+    description: Saturday or Sunday.
+  - name: fiscal_year
+    data_type: integer
+    description: Fiscal year (= calendar year, a planning assumption).
+  - name: fiscal_quarter
+    data_type: integer
+    description: Fiscal quarter (fiscal year = calendar year, a planning assumption).
+  - name: is_show_day
+    data_type: boolean
+    description: A gem show is running.
+  - name: show_name
+    data_type: varchar
+    description: Gem show running that day, if any.
+  - name: show_warehouse_id
+    data_type: varchar
+    description: Show booth used during the show.
+  - name: is_as_of_date
+    data_type: boolean
+    description: True for the last day of data.
+- name: dim_products
+  description: One row per SKU with current attributes, cost and price, and its ABC/XYZ class.
+  columns:
+  - name: sku
+    data_type: varchar
+    description: Canonical SKU (FK dim_products).
+    data_tests:
+    - unique
+    - not_null
+  - name: product_name
+    data_type: varchar
+    description: Product name.
+  - name: category
+    data_type: varchar
+    description: Canonical product category.
+    data_tests:
+    - accepted_values:
+        arguments:
+          values:
+          - Polished Stones
+          - Rough Minerals
+          - Crystal Clusters
+          - Tumbled Stones
+          - Jewelry Components
+          - Decor & Landscape
+  - name: material
+    data_type: varchar
+    description: Stone material.
+  - name: unit_of_measure
+    data_type: varchar
+    description: '`each` or `lb`.'
+  - name: supplier_id
+    data_type: varchar
+    description: Supplier ID (FK dim_suppliers).
+    data_tests:
+    - relationships:
+        arguments:
+          to: ref('dim_suppliers')
+          field: supplier_id
+  - name: supplier_name
+    data_type: varchar
+    description: Supplier name.
+  - name: supplier_country
+    data_type: varchar
+    description: Primary supplier's country.
+  - name: unit_cost_usd
+    data_type: double
+    description: Unit cost in USD (in effect on the relevant date).
+  - name: list_price_usd
+    data_type: double
+    description: Current list price in USD.
+  - name: case_pack_qty
+    data_type: integer
+    description: Units per case pack; orders are rounded up to whole packs.
+  - name: launch_date
+    data_type: date
+    description: Date the SKU went on sale.
+  - name: discontinued_date
+    data_type: date
+    description: Date the SKU was discontinued; null if still sold.
+  - name: is_active
+    data_type: boolean
+    description: False once discontinued.
+  - name: abc_class
+    data_type: varchar
+    description: 'A/B/C by trailing-12-month revenue: A = SKUs making up the first 80% of revenue, B = next 15%, C = the rest.'
+    data_tests:
+    - accepted_values:
+        arguments:
+          values:
+          - A
+          - B
+          - C
+  - name: xyz_class
+    data_type: varchar
+    description: 'X/Y/Z by demand variability: CV of weekly demand < 0.5, 0.5-1.0, > 1.0.'
+    data_tests:
+    - accepted_values:
+        arguments:
+          values:
+          - X
+          - Y
+          - Z
+  - name: revenue_12m_usd
+    data_type: double
+    description: Net revenue in the trailing 12 months.
+  - name: weekly_demand_cv
+    data_type: double
+    description: Coefficient of variation of weekly demand over the last 26 weeks (drives XYZ).
+- name: dim_customers
+  description: 'One row per canonical customer: duplicate ERP records for the same business are merged (planted issue 1). Attributes come from the earliest record; order history spans all records.'
+  columns:
+  - name: customer_id
+    data_type: varchar
+    description: Customer ID.
+    data_tests:
+    - unique
+    - not_null
+  - name: customer_name
+    data_type: varchar
+    description: Customer business name (canonical record).
+  - name: customer_type
+    data_type: varchar
+    description: Customer segment (canonical record).
+    data_tests:
+    - accepted_values:
+        arguments:
+          values:
+          - retail_shop
+          - jewelry_maker
+          - online_reseller
+          - interior_designer
+          - landscaper
+          - wholesaler
+          - metaphysical_store
+  - name: state
+    data_type: varchar
+    description: US state code.
+  - name: credit_terms
+    data_type: varchar
+    description: Current credit terms.
+  - name: sales_rep_id
+    data_type: varchar
+    description: Sales rep.
+  - name: has_valid_email
+    data_type: boolean
+    description: False when the email on file is malformed; null when there is none.
+  - name: n_erp_records
+    data_type: integer
+    description: ERP customer records merged into this customer (2+ means duplicates were found).
+  - name: first_order_date
+    data_type: date
+    description: First order date.
+  - name: last_order_date
+    data_type: date
+    description: Most recent order date.
+  - name: lifetime_orders
+    data_type: bigint
+    description: Orders across all ERP records of the customer (cancelled excluded).
+  - name: lifetime_net_revenue_usd
+    data_type: double
+    description: Net revenue across all orders.
+  - name: lifetime_gross_margin_usd
+    data_type: double
+    description: Gross margin across all orders.
+- name: dim_suppliers
+  description: One row per supplier, with lead-time statistics from received purchase orders.
+  columns:
+  - name: supplier_id
+    data_type: varchar
+    description: Supplier ID (FK dim_suppliers).
+    data_tests:
+    - unique
+    - not_null
+  - name: supplier_name
+    data_type: varchar
+    description: Supplier name.
+  - name: country
+    data_type: varchar
+    description: Supplier country.
+  - name: currency
+    data_type: varchar
+    description: Currency of the purchase order.
+  - name: payment_terms
+    data_type: varchar
+    description: Supplier payment terms.
+  - name: min_order_value_usd
+    data_type: double
+    description: Supplier's minimum order value in USD.
+  - name: received_po_count
+    data_type: bigint
+    description: Purchase orders received.
+  - name: quoted_lead_time_mean_days
+    data_type: double
+    description: Mean quoted lead time in days.
+  - name: lead_time_mean_days
+    data_type: double
+    description: 'L: mean actual lead time in days.'
+  - name: lead_time_std_days
+    data_type: double
+    description: 'sigma_L: standard deviation of actual lead time in days.'
+  - name: on_time_rate
+    data_type: double
+    description: Share of received POs that arrived on time.
+    data_tests:
+    - dbt_expectations.expect_column_values_to_be_between:
+        arguments:
+          min_value: 0
+          max_value: 1
+- name: dim_warehouses
+  description: One row per stock location (main warehouse and gem-show booths).
+  columns:
+  - name: warehouse_id
+    data_type: varchar
+    description: Warehouse ID (FK dim_warehouses).
+    data_tests:
+    - unique
+    - not_null
+  - name: warehouse_name
+    data_type: varchar
+    description: Warehouse name.
+  - name: warehouse_type
+    data_type: varchar
+    description: '`main` or `show`.'
+  - name: city
+    data_type: varchar
+    description: City.
+  - name: state
+    data_type: varchar
+    description: US state code.
+  - name: is_seasonal
+    data_type: boolean
+    description: True for gem-show booths that only hold stock during shows.
+- name: fct_order_lines
+  description: 'One row per order line on a non-cancelled order with a known SKU: revenue, COGS at the cost in effect on the order date, margin, and unfilled (stockout) quantity. Incremental (delete+insert on order_line_id) with a 7-day lookback on order_updated_at, so late status updates and later return lines are picked up.'
+  columns:
+  - name: order_line_id
+    data_type: varchar
+    description: Sales order line ID.
+    data_tests:
+    - unique
+    - not_null
+  - name: order_id
+    data_type: varchar
+    description: Sales order ID.
+  - name: line_no
+    data_type: integer
+    description: Line number within the order.
+  - name: order_date
+    data_type: date
+    description: Order date.
+    data_tests:
+    - relationships:
+        arguments:
+          to: ref('dim_date')
+          field: date_day
+  - name: order_status
+    data_type: varchar
+    description: Latest order status.
+    data_tests:
+    - accepted_values:
+        arguments:
+          values:
+          - placed
+          - shipped
+          - delivered
+          - returned
+  - name: channel
+    data_type: varchar
+    description: 'Sales channel: phone_email, b2b_portal, gem_show or marketplace.'
+  - name: warehouse_id
+    data_type: varchar
+    description: Warehouse ID (FK dim_warehouses).
+    data_tests:
+    - relationships:
+        arguments:
+          to: ref('dim_warehouses')
+          field: warehouse_id
+  - name: customer_id
+    data_type: varchar
+    description: Customer ID.
+  - name: canonical_customer_id
+    data_type: varchar
+    description: Surviving customer record after merging duplicate ERP records (FK dim_customers).
+    data_tests:
+    - relationships:
+        arguments:
+          to: ref('dim_customers')
+          field: customer_id
+  - name: customer_type
+    data_type: varchar
+    description: Customer segment (canonical record).
+  - name: sales_rep_id
+    data_type: varchar
+    description: Sales rep.
+  - name: sku
+    data_type: varchar
+    description: Canonical SKU (FK dim_products).
+    data_tests:
+    - relationships:
+        arguments:
+          to: ref('dim_products')
+          field: sku
+  - name: category
+    data_type: varchar
+    description: Canonical product category.
+  - name: is_return_line
+    data_type: boolean
+    description: A partial return keyed as a negative-quantity line.
+  - name: is_returned_order
+    data_type: boolean
+    description: The whole order was returned and refunded; its lines carry zero revenue.
+  - name: quantity_ordered
+    data_type: double
+    description: Quantity ordered (0 for return lines).
+  - name: quantity_fulfilled
+    data_type: double
+    description: Quantity shipped (0 for return lines).
+    data_tests:
+    - dbt_expectations.expect_column_values_to_be_between:
+        arguments:
+          min_value: 0
+  - name: quantity_returned
+    data_type: double
+    description: Quantity returned on a return line.
+  - name: quantity_unfilled
+    data_type: double
+    description: Ordered but not shipped because stock ran out.
+    data_tests:
+    - dbt_expectations.expect_column_values_to_be_between:
+        arguments:
+          min_value: 0
+  - name: unit_price_usd
+    data_type: double
+    description: Unit price charged before discounts.
+  - name: unit_cost_usd
+    data_type: double
+    description: Unit cost in USD (in effect on the relevant date).
+  - name: line_discount_rate
+    data_type: double
+    description: Line discount as a fraction.
+  - name: order_discount_rate
+    data_type: double
+    description: Order-level discount as a fraction.
+  - name: gross_revenue_usd
+    data_type: double
+    description: Quantity fulfilled x unit price, before discounts (negative for return lines).
+  - name: net_revenue_usd
+    data_type: double
+    description: Revenue after line and order discounts and refunds.
+  - name: cogs_usd
+    data_type: double
+    description: Cost of goods sold at the unit cost in effect on the order date (negative for return lines).
+  - name: gross_margin_usd
+    data_type: double
+    description: Net revenue minus COGS.
+  - name: unfilled_revenue_usd
+    data_type: double
+    description: Unfilled quantity valued at the quoted net price.
+  - name: order_updated_at
+    data_type: timestamp
+    description: Last change to the order; drives the incremental lookback.
+  - name: dbt_invocation_id
+    data_type: varchar
+    description: dbt run that last (re)wrote this row; shows which rows an incremental run processed.
+- name: fct_orders
+  description: One row per sales order (all statuses), with totals summed from fct_order_lines; cancelled orders show zero.
+  columns:
+  - name: order_id
+    data_type: varchar
+    description: Sales order ID.
+    data_tests:
+    - unique
+    - not_null
+  - name: order_date
+    data_type: date
+    description: Order date.
+  - name: customer_id
+    data_type: varchar
+    description: Customer ID.
+  - name: canonical_customer_id
+    data_type: varchar
+    description: Surviving customer record after merging duplicate ERP records (FK dim_customers).
+    data_tests:
+    - relationships:
+        arguments:
+          to: ref('dim_customers')
+          field: customer_id
+  - name: channel
+    data_type: varchar
+    description: 'Sales channel: phone_email, b2b_portal, gem_show or marketplace.'
+  - name: warehouse_id
+    data_type: varchar
+    description: Warehouse ID (FK dim_warehouses).
+  - name: order_status
+    data_type: varchar
+    description: Latest order status.
+    data_tests:
+    - accepted_values:
+        arguments:
+          values:
+          - placed
+          - shipped
+          - delivered
+          - cancelled
+          - returned
+  - name: cancel_reason
+    data_type: varchar
+    description: '`customer_request` or `out_of_stock`; null unless cancelled.'
+  - name: ship_date
+    data_type: date
+    description: Ship date; null until shipped.
+  - name: sales_rep_id
+    data_type: varchar
+    description: Sales rep.
+  - name: order_discount_rate
+    data_type: double
+    description: Order-level discount as a fraction.
+  - name: n_lines
+    data_type: bigint
+    description: Order lines.
+  - name: quantity_ordered
+    data_type: double
+    description: Quantity ordered (0 for return lines).
+  - name: quantity_fulfilled
+    data_type: double
+    description: Quantity shipped (0 for return lines).
+  - name: quantity_unfilled
+    data_type: double
+    description: Ordered but not shipped because stock ran out.
+  - name: net_revenue_usd
+    data_type: double
+    description: Revenue after line and order discounts and refunds.
+  - name: cogs_usd
+    data_type: double
+    description: Cost of goods sold at the unit cost in effect on the order date (negative for return lines).
+  - name: gross_margin_usd
+    data_type: double
+    description: Net revenue minus COGS.
+  - name: unfilled_revenue_usd
+    data_type: double
+    description: Unfilled quantity valued at the quoted net price.
+  - name: updated_at
+    data_type: timestamp
+    description: Last change to the record.
+- name: fct_purchase_order_lines
+  description: 'One row per purchase order line: USD cost (converted with the FX seed), quoted vs. actual lead time, on-time flag and fill rate.'
+  columns:
+  - name: po_line_id
+    data_type: varchar
+    description: Purchase order line ID.
+    data_tests:
+    - unique
+    - not_null
+  - name: po_id
+    data_type: varchar
+    description: Purchase order ID.
+  - name: supplier_id
+    data_type: varchar
+    description: Supplier ID (FK dim_suppliers).
+    data_tests:
+    - relationships:
+        arguments:
+          to: ref('dim_suppliers')
+          field: supplier_id
+  - name: sku
+    data_type: varchar
+    description: Canonical SKU (FK dim_products).
+    data_tests:
+    - relationships:
+        arguments:
+          to: ref('dim_products')
+          field: sku
+  - name: order_date
+    data_type: date
+    description: Order date.
+  - name: expected_arrival_date
+    data_type: date
+    description: Order date plus the supplier's quoted lead time.
+  - name: actual_arrival_date
+    data_type: date
+    description: Date the goods arrived; null while the PO is open or in transit.
+  - name: po_status
+    data_type: varchar
+    description: Latest PO status.
+  - name: currency
+    data_type: varchar
+    description: Currency of the purchase order.
+  - name: quantity_ordered
+    data_type: double
+    description: Quantity ordered (0 for return lines).
+  - name: quantity_received
+    data_type: double
+    description: Quantity received; null until the PO arrives.
+  - name: open_quantity
+    data_type: double
+    description: Quantity still on order (PO open or in transit).
+  - name: unit_cost_local
+    data_type: double
+    description: Unit cost in the PO's currency.
+  - name: unit_cost_usd
+    data_type: double
+    description: Unit cost in USD (in effect on the relevant date).
+  - name: ordered_value_usd
+    data_type: double
+    description: Quantity ordered x unit cost in USD.
+  - name: quoted_lead_time_days
+    data_type: integer
+    description: Supplier's quoted lead time in days.
+  - name: actual_lead_time_days
+    data_type: integer
+    description: Days from PO order date to actual arrival; null until received.
+  - name: days_late
+    data_type: integer
+    description: Actual minus quoted lead time in days (positive = late).
+  - name: is_received
+    data_type: boolean
+    description: PO received in full or in part.
+  - name: is_on_time
+    data_type: boolean
+    description: Arrived no later than the quoted date plus 3 days' grace (var on_time_grace_days); null until received.
+  - name: fill_rate
+    data_type: double
+    description: Quantity received (or fulfilled) divided by quantity ordered.
+    data_tests:
+    - dbt_expectations.expect_column_values_to_be_between:
+        arguments:
+          min_value: 0
+          max_value: 1.05
+- name: fct_inventory_daily
+  description: 'One row per SKU x warehouse x day: end-of-day stock on hand and its value at the unit cost in effect that day. Incremental by day (7-day lookback); the ledger is append-only, so earlier days never change.'
+  data_tests:
+  - dbt_utils.unique_combination_of_columns:
+      arguments:
+        combination_of_columns:
+        - sku
+        - warehouse_id
+        - date_day
+  columns:
+  - name: sku
+    data_type: varchar
+    description: Canonical SKU (FK dim_products).
+    data_tests:
+    - relationships:
+        arguments:
+          to: ref('dim_products')
+          field: sku
+  - name: warehouse_id
+    data_type: varchar
+    description: Warehouse ID (FK dim_warehouses).
+    data_tests:
+    - relationships:
+        arguments:
+          to: ref('dim_warehouses')
+          field: warehouse_id
+  - name: date_day
+    data_type: date
+    description: Calendar day.
+  - name: on_hand_qty
+    data_type: double
+    description: Stock on hand at end of day.
+    data_tests:
+    - dbt_expectations.expect_column_values_to_be_between:
+        arguments:
+          min_value: 0
+  - name: net_change_qty
+    data_type: double
+    description: Net stock movement during the day.
+  - name: sold_qty
+    data_type: double
+    description: Quantity sold during the day.
+  - name: received_qty
+    data_type: double
+    description: Quantity received into stock during the day.
+  - name: unit_cost_usd
+    data_type: double
+    description: Unit cost in USD (in effect on the relevant date).
+  - name: on_hand_value_usd
+    data_type: double
+    description: On-hand quantity x unit cost.

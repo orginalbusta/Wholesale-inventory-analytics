@@ -100,7 +100,8 @@ The ERP's price-change log. dbt uses it for cost **as of order date**, because a
 | order_date | date | |
 | channel | str | `phone_email` 35%, `b2b_portal` 30%, `gem_show` 20% (only during show windows), `marketplace` 15% |
 | warehouse_id | str | `SD-MAIN` normally; show location for gem_show orders |
-| status | str | `placed` → `shipped` → `delivered`; ~3% `cancelled`; ~2% `returned` |
+| status | str | `placed` → `shipped` → `delivered`; ~3% `cancelled` by the customer, plus orders where nothing could ship (stockout); ~2% `returned` |
+| cancel_reason | str, nullable | `customer_request` or `out_of_stock` when cancelled (added in Phase 4: lets demand count stockout cancellations but not customer cancellations) |
 | ship_date | date, nullable | 0–5 business days after order if in stock |
 | order_discount_pct | float | Percentage points (5.0 = 5%). 0 for most; 5–15 for wholesalers and show deals |
 | sales_rep_id | str | |

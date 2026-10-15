@@ -7,20 +7,11 @@ data/_truth/planted_issues/ is either fixed in staging or caught by a dbt test.
 
 from __future__ import annotations
 
-import json
-import os
 from datetime import datetime
 
-import duckdb
 import pandas as pd
-import pytest
-from dbt.cli.main import dbtRunner
+from dbt_helpers import query
 
-from generator.config import DEFAULT_CONFIG_PATH, REPO_ROOT, load_config
-from generator.generate import backfill, simulate_day
-from ingestion.load_erp import load_erp
-
-TRANSFORM = REPO_ROOT / "transform"
 EXPECTED_WARNINGS = {
     "assert_no_duplicate_customer_emails": 1,
     "dbt_expectations_expect_column_values_to_match_regex_stg_erp__customers_contact_email": 7,
@@ -29,48 +20,8 @@ EXPECTED_WARNINGS = {
 }
 
 
-@pytest.fixture(scope="module")
-def built(tmp_path_factory) -> dict:
-    root = tmp_path_factory.mktemp("dbt")
-    cfg = load_config(DEFAULT_CONFIG_PATH, "small", root=root)
-    backfill(cfg)
-    simulate_day(cfg)
-    db = root / "warehouse.duckdb"
-    previous = {k: os.environ.get(k) for k in ("WAREHOUSE", "DUCKDB_PATH")}
-    os.environ.update({"WAREHOUSE": "duckdb", "DUCKDB_PATH": str(db)})
-    try:
-        load_erp(
-            raw_dir=root / "data" / "raw" / "erp", duckdb_path=db, pipelines_dir=root / "pipelines"
-        )
-        target = root / "target"
-        result = dbtRunner().invoke(
-            ["build", "--project-dir", str(TRANSFORM), "--profiles-dir", str(TRANSFORM),
-             "--target-path", str(target), "--log-path", str(root / "logs"), "--quiet"]
-        )  # fmt: skip
-    finally:
-        for k, v in previous.items():
-            if v is None:
-                os.environ.pop(k, None)
-            else:
-                os.environ[k] = v
-    run_results = json.loads((target / "run_results.json").read_text(encoding="utf-8"))
-    issues = pd.concat(
-        pd.read_parquet(f)
-        for f in sorted((root / "data" / "_truth" / "planted_issues").glob("*.parquet"))
-    )
-    return {
-        "root": root,
-        "db": db,
-        "success": result.success,
-        "results": run_results["results"],
-        "issues": issues,
-    }
-
-
 def _query(built, sql: str) -> pd.DataFrame:
-    # dbt-duckdb keeps an in-process connection open; match its (read-write) configuration.
-    with duckdb.connect(str(built["db"])) as con:
-        return con.execute(sql).df()
+    return query(built["root"], sql)
 
 
 def _ids(built, issue_no: int) -> list[str]:

@@ -62,6 +62,11 @@ dbt project lives in `transform/`. Layering rules:
 | `int_purchase_order_lines__enriched` | PO line | Join PO header; USD cost via FX on order date; lead time actual vs. quoted; on_time flag; fill rate |
 | `int_inventory__daily_balance` | SKU × warehouse × day | Cumulative sum of movements over a `dbt_utils.date_spine`. Materialize as **table**; consider incremental |
 | `int_sku_demand__daily` | SKU × day | Ordered qty (true demand incl. unfilled), fulfilled qty, unfilled qty. Zero-filled over spine for active SKUs |
+| `int_calendar__days` | day | *(added)* Day spine over the data range with show flags; `as_of_date` anchors trailing windows |
+| `int_product_costs__history` | SKU × price version | *(added)* Validity ranges from the price-change log; cost as of any date |
+| `int_sku__abc_xyz` | SKU | *(added)* ABC/XYZ classes (kept out of dim_products to avoid cycles) |
+| `int_sku__reorder_inputs` | SKU | *(added)* Demand mean/std + `demand_source`, lead-time mean/std, on hand, on order, z-score: the swap point for forecasts |
+| `int_customers__rfm_scores` | canonical customer | *(added)* RFM metrics and quintile scores; segments applied in the mart |
 
 ## Marts
 

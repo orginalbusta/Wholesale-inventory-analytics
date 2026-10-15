@@ -1,0 +1,25 @@
+version: 2
+
+exposures:
+  - name: inventory_dashboard
+    label: Craftstones inventory & reorder dashboard
+    type: dashboard
+    maturity: medium
+    description: >
+      Public Evidence.dev dashboard (built in Phase 5, hosted on GitHub Pages): overview,
+      reorder recommendations, inventory health, supplier performance, and sales and
+      customers. Synthetic data; an ideal-state design, not the production system at
+      Craftstones. It reads only these marts.
+    owner:
+      name: Harsh Arya
+    depends_on:
+      - ref('dim_date')
+      - ref('dim_products')
+      - ref('fct_inventory_daily')
+      - ref('mart_inventory_health')
+      - ref('mart_reorder_recommendations')
+      - ref('mart_stockouts')
+      - ref('mart_supplier_performance')
+      - ref('mart_supplier_performance_quarterly')
+      - ref('mart_sales_monthly')
+      - ref('mart_customer_rfm')

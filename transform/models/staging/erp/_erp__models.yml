@@ -235,6 +235,12 @@ models:
           - accepted_values:
               arguments:
                 values: ['placed', 'shipped', 'delivered', 'cancelled', 'returned']
+      - name: cancel_reason
+        description: "`customer_request` or `out_of_stock` (nothing could ship); null unless cancelled."
+        data_tests:
+          - accepted_values:
+              arguments:
+                values: ['customer_request', 'out_of_stock']
       - name: ship_date
         description: Ship date, null until shipped.
       - name: order_discount_rate

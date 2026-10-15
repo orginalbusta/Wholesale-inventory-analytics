@@ -1,0 +1,183 @@
+version: 2
+
+# Intermediate: business-logic building blocks between staging and marts. Materialized as
+# tables (fast in DuckDB, queryable for debugging, usable as unit-test inputs).
+
+models:
+  - name: int_calendar__days
+    description: >
+      One row per day from the first to the last inventory movement, with gem-show flags.
+      as_of_date (the last day of data) anchors every trailing-window metric.
+    columns:
+      - name: date_day
+        description: Calendar day.
+        data_tests: [unique, not_null]
+      - name: as_of_date
+        description: Last day of data.
+
+  - name: int_product_costs__history
+    description: >
+      One row per SKU per price version with its validity range (valid_to exclusive), from
+      the ERP price-change log. Used for cost as of any date.
+    data_tests:
+      - dbt_utils.unique_combination_of_columns:
+          arguments:
+            combination_of_columns: ['sku', 'valid_from']
+    columns:
+      - name: sku
+        description: SKU.
+      - name: valid_from
+        description: First day this version was in effect.
+      - name: valid_to
+        description: Day the next version took effect (9999-12-31 for the current one).
+      - name: unit_cost_usd
+        description: Unit cost in this version.
+        data_tests: [not_null]
+
+  - name: int_customers__deduplicated
+    description: >
+      Maps every customer record to its canonical record (planted issue 1). Same business =
+      same normalized name, or same valid email + customer type + state. The earliest
+      record survives.
+    columns:
+      - name: customer_id
+        description: ERP customer record.
+        data_tests: [unique, not_null]
+      - name: canonical_customer_id
+        description: Surviving record for this business.
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('stg_erp__customers')
+                field: customer_id
+      - name: is_duplicate_record
+        description: True when this record was merged into an earlier one.
+      - name: match_rule
+        description: "`name`, `email` or `name+email`; null for canonical records."
+
+  - name: int_order_lines__enriched
+    description: >
+      Order lines on non-cancelled orders with known SKUs, joined to the order, canonical
+      customer, product and the unit cost in effect on the order date. Computes revenue,
+      COGS, margin and unfilled demand. Return lines carry negative revenue and COGS;
+      lines of fully returned orders carry zero.
+    columns:
+      - name: order_line_id
+        description: Order line.
+        data_tests: [unique, not_null]
+      - name: unit_cost_usd
+        description: Unit cost in effect on the order date. Must exist for every line.
+        data_tests: [not_null]
+      - name: canonical_customer_id
+        description: Customer after merging duplicates.
+        data_tests: [not_null]
+
+  - name: int_order_lines__orphans
+    description: Quarantine for order lines whose SKU matches no product (planted issue 9).
+    columns:
+      - name: order_line_id
+        description: Order line.
+        data_tests: [unique, not_null]
+      - name: sku_raw
+        description: SKU exactly as keyed.
+
+  - name: int_fx_rates__daily
+    description: >
+      One row per currency per day. units_per_usd is the monthly FX seed (the rates the ERP
+      used for PO costs, so USD costs reconcile); fred_units_per_usd is FRED's daily rate,
+      forward-filled, for context.
+    data_tests:
+      - dbt_utils.unique_combination_of_columns:
+          arguments:
+            combination_of_columns: ['date_day', 'currency']
+    columns:
+      - name: units_per_usd
+        description: Units of currency per USD used for conversion.
+        data_tests: [not_null]
+
+  - name: int_purchase_order_lines__enriched
+    description: >
+      Purchase order lines with header fields, USD cost, quoted vs. actual lead time,
+      lateness, on-time flag and fill rate.
+    columns:
+      - name: po_line_id
+        description: PO line.
+        data_tests: [unique, not_null]
+      - name: unit_cost_usd
+        description: Local cost converted at the FX rate for the order date. Must exist for every line.
+        data_tests: [not_null]
+
+  - name: int_inventory__daily_balance
+    description: >
+      One row per SKU x warehouse x day from the pair's first movement: end-of-day stock on
+      hand as the running sum of the signed ledger.
+    data_tests:
+      - dbt_utils.unique_combination_of_columns:
+          arguments:
+            combination_of_columns: ['sku', 'warehouse_id', 'date_day']
+    columns:
+      - name: on_hand_qty
+        description: End-of-day stock on hand.
+
+  - name: int_sku_demand__daily
+    description: >
+      One row per SKU per day from launch, zero-filled. ordered_qty is TRUE demand,
+      including unfilled quantity and stockout-cancelled orders (not customer
+      cancellations), so forecasts can train on uncensored demand.
+    data_tests:
+      - dbt_utils.unique_combination_of_columns:
+          arguments:
+            combination_of_columns: ['sku', 'date_day']
+    columns:
+      - name: unfilled_qty
+        description: Demand that could not be filled.
+        data_tests:
+          - dbt_expectations.expect_column_values_to_be_between:
+              arguments:
+                min_value: 0
+
+  - name: int_sku__abc_xyz
+    description: >
+      ABC class by trailing-12-month revenue and XYZ class by the coefficient of variation
+      of weekly demand over 26 weeks. Thresholds are dbt vars. Kept out of dim_products so
+      marts can use it without circular references.
+    columns:
+      - name: sku
+        description: SKU.
+        data_tests: [unique, not_null]
+      - name: abc_class
+        description: A, B or C.
+        data_tests:
+          - accepted_values:
+              arguments:
+                values: ['A', 'B', 'C']
+      - name: xyz_class
+        description: X, Y or Z.
+        data_tests:
+          - accepted_values:
+              arguments:
+                values: ['X', 'Y', 'Z']
+
+  - name: int_sku__reorder_inputs
+    description: >
+      Everything the reorder calculation needs per SKU: demand mean/std (with
+      demand_source, the hook for swapping in forecasts), actual lead-time mean/std for the
+      primary supplier, stock on hand and on order, and the service-level z-score.
+    columns:
+      - name: sku
+        description: SKU.
+        data_tests: [unique, not_null]
+      - name: z_score
+        description: Every SKU must map to a policy row.
+        data_tests: [not_null]
+
+  - name: int_customers__rfm_scores
+    description: >
+      One row per canonical customer: recency, trailing-12-month frequency and monetary
+      value, and 1-5 quintile scores (5 = best). Segment labels are applied in
+      mart_customer_rfm.
+    columns:
+      - name: canonical_customer_id
+        description: Canonical customer.
+        data_tests: [unique, not_null]

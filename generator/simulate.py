@@ -256,7 +256,7 @@ def run_simulation(cfg: Config, ref: Reference, tl: Timelines, model: DemandMode
         # 08:00-18:00 sales orders
         rng = day_rng(cfg.seed, "demand", t)
         active = (created_off <= t) & (t < churn_off) & ~is_dup
-        lam = rate_raw * model.rate_scale * model.order_index[t] * active
+        lam = rate_raw * model.rate_scale * model.order_index_by_type[type_pos, t] * active
         n_per_cust = rng.poisson(lam)
         n_per_cust[active & (created_off == t)] = np.maximum(
             n_per_cust[active & (created_off == t)], 1
@@ -312,16 +312,18 @@ def run_simulation(cfg: Config, ref: Reference, tl: Timelines, model: DemandMode
                 else:
                     w_g = model.weights[t] * model.type_affinity[g]
                 l_sku[mask] = rng.choice(n, mask.sum(), p=w_g / w_g.sum())
-            key = np.unique(l_order * n + l_sku)
+            # An order that picks the same SKU twice gets one line with the combined quantity.
+            key, picks = np.unique(l_order * n + l_sku, return_counts=True)
             l_order, l_sku = key // n, key % n
             first = np.searchsorted(l_order, np.arange(n_orders))
             line_no = np.arange(len(l_order)) - first[l_order] + 1
             n_lines = np.bincount(l_order, minlength=n_orders)
 
-            # Quantities: negative binomial number of case packs, sometimes off-pack
+            # Quantities: negative binomial number of case packs per pick, sometimes off-pack.
+            # Summing `picks` NB(r, p) draws is NB(r * picks, p), so merged lines stay exact.
             r = cfg.demand["qty_dispersion"]
             pm = model.pack_mean[l_sku]
-            packs = 1 + rng.negative_binomial(r, r / (r + pm - 1))
+            packs = picks + rng.negative_binomial(r * picks, r / (r + pm - 1))
             qmult = np.where(o_show[l_order], SHOW_QTY_MULTIPLIER, qty_mult_type[o_type[l_order]])
             qty = case_pack[l_sku] * np.maximum(1, np.round(packs * qmult))
             loose = rng.random(len(qty)) < 0.10
@@ -370,6 +372,9 @@ def run_simulation(cfg: Config, ref: Reference, tl: Timelines, model: DemandMode
             )
             cancel_ts[stockout_cancel] = placed_ts[stockout_cancel] + HOUR
             is_cancelled = cancelled | stockout_cancel
+            cancel_reason = np.where(
+                cancelled, "customer_request", np.where(stockout_cancel, "out_of_stock", None)
+            ).astype(object)
             ship_delay = rng.choice(6, n_orders, p=SHIP_DELAY_P)
             ship_day = np.busday_offset(
                 np.full(n_orders, np.datetime64(day.date(), "D")), ship_delay, roll="forward"
@@ -424,7 +429,7 @@ def run_simulation(cfg: Config, ref: Reference, tl: Timelines, model: DemandMode
             )
             neg_qty = np.maximum(1, np.round(filled * rng.uniform(0.1, 0.5, len(filled))))
             neg_days = rng.integers(3, 31, len(filled))
-            neg_secs = rng.integers(1800, 3600, len(filled))
+            neg_secs = rng.integers(0, 1800, len(filled))  # 07:00-07:30, before show transfers
             last_line_return_ts = np.full(n_orders, NAT)
 
             # Planted issue 9: lines keyed with a SKU code that doesn't exist (never fulfilled)
@@ -498,6 +503,7 @@ def run_simulation(cfg: Config, ref: Reference, tl: Timelines, model: DemandMode
                 deliver_ts=deliver_ts,
                 return_ts=return_ts,
                 line_return_ts=last_line_return_ts,
+                cancel_reason=cancel_reason,
             )
             lines_out.add(
                 order_line_id=line_ids,
@@ -667,7 +673,7 @@ def run_simulation(cfg: Config, ref: Reference, tl: Timelines, model: DemandMode
     orders = orders_out.frame(
         ["order_id", "cust_pos", "customer_id", "order_date", "placed_ts", "channel", "warehouse_id",
          "order_discount_pct", "sales_rep_id", "cancel_ts", "ship_ts", "deliver_ts", "return_ts",
-         "line_return_ts"]
+         "line_return_ts", "cancel_reason"]
     )  # fmt: skip
     lines = lines_out.frame(
         ["order_line_id", "order_id", "line_no", "sku_pos", "sku_text", "quantity",

@@ -197,6 +197,14 @@ def _random_dates(rng: np.random.Generator, start: date, end: date, n: int) -> l
     return [start + timedelta(days=int(o)) for o in offsets]
 
 
+def _steady_dates(rng: np.random.Generator, start: date, end: date, n: int) -> list[date]:
+    """n dates that arrive steadily: one per equal slice of [start, end], jittered within it.
+    (Pure random draws can leave long gaps by chance, e.g. no new customers for months.)"""
+    span = (end - start).days
+    offsets = ((np.arange(n) + rng.random(n)) * span / max(n, 1)).astype(int)
+    return [start + timedelta(days=int(o)) for o in offsets]
+
+
 def _slug(text: str) -> str:
     return re.sub(r"[^a-z0-9]+", "", text.lower())
 
@@ -354,7 +362,7 @@ def build_customers(
     created = _random_dates(
         rng, start - timedelta(days=2000), start - timedelta(days=30), n_existing
     )
-    created += sorted(_random_dates(rng, start, end - timedelta(days=7), n - n_existing))
+    created += _steady_dates(rng, start, end - timedelta(days=7), n - n_existing)
 
     state_names = list(STATE_WEIGHTS) + OTHER_STATES
     other_w = (1 - sum(STATE_WEIGHTS.values())) / len(OTHER_STATES)

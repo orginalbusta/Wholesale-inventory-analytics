@@ -30,7 +30,7 @@ models:
       +materialized: view
     intermediate:
       +schema: intermediate
-      +materialized: ephemeral
+      +materialized: table  # small and fast in DuckDB; queryable for debugging and unit tests
     marts:
       +schema: marts
       +materialized: table

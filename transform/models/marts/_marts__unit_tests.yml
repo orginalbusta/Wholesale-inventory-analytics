@@ -1,0 +1,88 @@
+version: 2
+
+# dbt unit tests for the business logic in the marts layer, on hand-computed fixtures.
+
+unit_tests:
+  - name: test_reorder_point_and_safety_stock_math
+    description: >
+      Hand-computed: d = 5/day, sigma_d = 4, L = 9 days, sigma_L = 1, z = 2.
+      safety stock = 2 * sqrt(9*16 + 25*1) = 2 * 13 = 26; reorder point = 5*9 + 26 = 71.
+      S1: position 40 + 10 = 50 <= 71, so order 71 + 5*14 - 50 = 91, rounded up to
+      12-unit packs = 96. S2 is above its reorder point (0). S3 has no demand, so it never
+      triggers. S4 is discontinued and excluded.
+    model: mart_reorder_recommendations
+    given:
+      - input: ref('int_sku__reorder_inputs')
+        rows:
+          - {sku: S1, is_active: true, is_launched: true, case_pack_qty: 12, z_score: 2, demand_mean_daily: 5, demand_std_daily: 4, lead_time_mean_days: 9, lead_time_std_days: 1, on_hand_qty: 40, on_order_qty: 10}
+          - {sku: S2, is_active: true, is_launched: true, case_pack_qty: 12, z_score: 2, demand_mean_daily: 5, demand_std_daily: 4, lead_time_mean_days: 9, lead_time_std_days: 1, on_hand_qty: 200, on_order_qty: 0}
+          - {sku: S3, is_active: true, is_launched: true, case_pack_qty: 6, z_score: 2, demand_mean_daily: 0, demand_std_daily: 0, lead_time_mean_days: 9, lead_time_std_days: 1, on_hand_qty: 0, on_order_qty: 0}
+          - {sku: S4, is_active: false, is_launched: true, case_pack_qty: 6, z_score: 2, demand_mean_daily: 5, demand_std_daily: 1, lead_time_mean_days: 9, lead_time_std_days: 1, on_hand_qty: 0, on_order_qty: 0}
+    expect:
+      rows:
+        - {sku: S1, safety_stock_qty: 26, reorder_point_qty: 71, inventory_position: 50, reorder_now: true, suggested_order_qty: 96}
+        - {sku: S2, safety_stock_qty: 26, reorder_point_qty: 71, inventory_position: 200, reorder_now: false, suggested_order_qty: 0}
+        - {sku: S3, safety_stock_qty: 0, reorder_point_qty: 0, inventory_position: 0, reorder_now: false, suggested_order_qty: 0}
+
+  - name: test_abc_classification_boundaries
+    description: >
+      Revenues 50, 30, 15, 4, 1 (total 100). Revenue ranked ahead: 0, 50, 80, 95, 99 (%).
+      A while that is below 80% (the SKU that crosses 80% counts as A), B below 95%, else
+      C. Zero revenue is always C.
+    model: int_sku__abc_xyz
+    given:
+      - input: ref('stg_erp__products')
+        rows:
+          - {sku: P1}
+          - {sku: P2}
+          - {sku: P3}
+          - {sku: P4}
+          - {sku: P5}
+          - {sku: P6}
+      - input: ref('int_calendar__days')
+        rows:
+          - {date_day: "2026-09-30"}
+      - input: ref('int_order_lines__enriched')
+        rows:
+          - {sku: P1, order_date: "2026-06-01", net_revenue_usd: 50}
+          - {sku: P2, order_date: "2026-06-01", net_revenue_usd: 30}
+          - {sku: P3, order_date: "2026-06-01", net_revenue_usd: 15}
+          - {sku: P4, order_date: "2026-06-01", net_revenue_usd: 4}
+          - {sku: P5, order_date: "2026-06-01", net_revenue_usd: 1}
+          - {sku: P6, order_date: "2024-01-01", net_revenue_usd: 999}
+      - input: ref('int_sku_demand__daily')
+        rows: []
+    expect:
+      rows:
+        - {sku: P1, abc_class: A}
+        - {sku: P2, abc_class: A}
+        - {sku: P3, abc_class: B}
+        - {sku: P4, abc_class: C}
+        - {sku: P5, abc_class: C}
+        - {sku: P6, abc_class: C}
+
+  - name: test_rfm_segment_assignment
+    description: Each segment rule, including rule order (a new customer is New even with top scores).
+    model: mart_customer_rfm
+    given:
+      - input: ref('int_customers__rfm_scores')
+        rows:
+          - {canonical_customer_id: C1, first_order_date: "2026-08-15", recency_score: 5, frequency_score: 5}
+          - {canonical_customer_id: C2, first_order_date: "2024-01-01", recency_score: 5, frequency_score: 4}
+          - {canonical_customer_id: C3, first_order_date: "2024-01-01", recency_score: 3, frequency_score: 3}
+          - {canonical_customer_id: C4, first_order_date: "2024-01-01", recency_score: 1, frequency_score: 4}
+          - {canonical_customer_id: C5, first_order_date: "2024-01-01", recency_score: 2, frequency_score: 1}
+          - {canonical_customer_id: C6, first_order_date: "2024-01-01", recency_score: 5, frequency_score: 1}
+      - input: ref('int_calendar__days')
+        rows:
+          - {date_day: "2026-09-30"}
+      - input: ref('dim_customers')
+        rows: []
+    expect:
+      rows:
+        - {customer_id: C1, segment: New}
+        - {customer_id: C2, segment: Champions}
+        - {customer_id: C3, segment: Loyal}
+        - {customer_id: C4, segment: At Risk}
+        - {customer_id: C5, segment: Hibernating}
+        - {customer_id: C6, segment: Needs Attention}

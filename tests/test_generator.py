@@ -194,15 +194,18 @@ def test_pareto_revenue_concentration(revenue_lines):
 
 
 def test_seasonality_visible(small, revenue_lines):
+    """Seasonality is a property of demand, so measure ordered value, not fulfilled revenue
+    (the naive buyer's peak-season stockouts cap what actually ships)."""
     truth = pd.read_parquet(small / "data" / "_truth" / "sku_demand_params.parquet")
     cats = truth.set_index("sku")["category"]
     lines = revenue_lines.assign(
         category=revenue_lines["canonical_sku"].map(cats),
         month=pd.to_datetime(revenue_lines["order_date"]).dt.strftime("%Y-%m"),
+        demand_value=revenue_lines["quantity"] * revenue_lines["unit_price_usd"],
     )
-    rev = lines.groupby(["category", "month"])["revenue"].sum()
-    assert rev["Jewelry Components", "2025-11"] > 1.3 * rev["Jewelry Components", "2025-07"]
-    assert rev["Decor & Landscape", "2026-04"] > 1.5 * rev["Decor & Landscape", "2025-07"]
+    demand = lines.groupby(["category", "month"])["demand_value"].sum()
+    assert demand["Jewelry Components", "2025-11"] > 1.3 * demand["Jewelry Components", "2025-07"]
+    assert demand["Decor & Landscape", "2026-04"] > 1.5 * demand["Decor & Landscape", "2025-07"]
 
 
 def test_quoted_lead_times_are_optimistic(small):
