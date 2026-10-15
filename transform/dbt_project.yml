@@ -46,6 +46,8 @@ seeds:
       +column_types: {month: date, currency: varchar, units_per_usd: double, source: varchar}
     abc_xyz_policy:
       +column_types: {target_service_level: double, z_score: double}
+    service_level_z_scores:
+      +column_types: {service_level: double, z_score: double}
 
 snapshots:
   craftstones:

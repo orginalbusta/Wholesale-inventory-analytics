@@ -31,6 +31,7 @@ Dead stock = stock on hand with no sale in the last 180 days: cash tied up on th
 ```sql dead_stock
 select
     sku,
+    '/sku/' || sku as sku_link,
     product_name,
     category,
     on_hand_qty,
@@ -52,7 +53,7 @@ order by 2 desc
 
 <BarChart data={dead_by_category} x=category y=dead_stock_value_usd yFmt=usd0k swapXY=true title="Dead-stock value by category" />
 
-<DataTable data={dead_stock} rows=15>
+<DataTable data={dead_stock} rows=15 link=sku_link>
     <Column id=sku />
     <Column id=product_name title="Product" />
     <Column id=category />

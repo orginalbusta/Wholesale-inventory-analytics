@@ -11,6 +11,8 @@
 -- forecasting layer swaps them in int_sku__reorder_inputs and sets demand_source).
 -- L / sigma_L: the primary supplier's actual lead times, not the quoted ones.
 -- z: from the ABC x XYZ service-level policy seed.
+-- The dashboard's what-if page recomputes these formulas in the browser from this mart's input
+-- columns; tests/test_dashboard_whatif.py checks that both agree at the default inputs.
 
 with
 
@@ -81,6 +83,8 @@ select
     cast(inventory_position as double) as inventory_position,
     cast(reorder_now as boolean) as reorder_now,
     cast(case_pack_qty as integer) as case_pack_qty,
+    cast(unit_cost_usd as double) as unit_cost_usd,
+    cast({{ var('review_period_days') }} as integer) as review_period_days,
     cast(
         case
             when

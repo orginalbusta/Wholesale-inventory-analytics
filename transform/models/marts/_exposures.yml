@@ -7,7 +7,7 @@ exposures:
     maturity: medium
     description: >
       Public Evidence.dev dashboard (built in Phase 5, hosted on GitHub Pages): overview,
-      reorder recommendations, inventory health, supplier performance, and sales and
+      reorder recommendations, a what-if reorder policy page, one drill-down page per SKU, inventory health, supplier performance, and sales and
       customers. Synthetic data; an ideal-state design, not the production system at
       Craftstones. It reads only these marts.
     owner:
@@ -15,6 +15,9 @@ exposures:
     depends_on:
       - ref('dim_date')
       - ref('dim_products')
+      - ref('dim_service_levels')
+      - ref('fct_order_lines')
+      - ref('fct_purchase_order_lines')
       - ref('fct_inventory_daily')
       - ref('mart_inventory_health')
       - ref('mart_reorder_recommendations')

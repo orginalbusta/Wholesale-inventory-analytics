@@ -5,6 +5,8 @@
 
 **Live dashboard:** https://orginalbusta.github.io/Wholesale-inventory-analytics/ · **dbt docs & lineage:** https://orginalbusta.github.io/Wholesale-inventory-analytics/dbt-docs/
 
+**Try it:** the [what-if reorder policy](https://orginalbusta.github.io/Wholesale-inventory-analytics/what-if/) page lets you change service levels, lead-time buffers and the review period and see the effect on every SKU's reorder point and on the cash tied up in safety stock, recalculated in your browser. Every SKU also has its own [drill-down page](https://orginalbusta.github.io/Wholesale-inventory-analytics/sku/).
+
 From 2023 to 2026 I was the sole data analyst at **Craftstones USA**, a ~20-person wholesale stone distributor in San Diego, where I built the company's data function from scratch. This project answers the question I kept asking myself there: **if I could rebuild the data platform from zero with a modern stack, how would I do it?**
 
 It centers on the decision that matters most to a distributor: **which products should we reorder, when, and how much, and where is cash tied up in dead stock?**
@@ -19,7 +21,7 @@ It centers on the decision that matters most to a distributor: **which products 
 |---|---|---|
 | Storage | SQL databases + spreadsheets | Cloud-ready warehouse (DuckDB locally, Snowflake target) with raw / staging / marts layers |
 | Pipelines | Python/SQL ETL scripts | dlt ingestion + dbt transformations, rebuilt from scratch nightly by GitHub Actions |
-| Data quality | Manual checks | 206 automated dbt data tests, 8 dbt unit tests, enforced model contracts, source freshness |
+| Data quality | Manual checks | 214 automated dbt data tests, 8 dbt unit tests, enforced model contracts, source freshness |
 | Reporting | Tableau dashboards | Version-controlled dashboard + public lineage docs, rebuilt on every merge |
 | Forecasting & reorder | Regression forecast for inventory decisions | Reorder points from demand *and* supplier lead-time variability, ABC/XYZ service levels; a forecast plugs in as a swappable input |
 | Change management | Single analyst, no review process | Git, CI on every pull request, reproducible builds |
@@ -64,7 +66,8 @@ flowchart LR
 | Ingestion | dlt |
 | Warehouse | DuckDB (default) · Snowflake (optional target) |
 | Transformation | dbt Core: staging/intermediate/marts, snapshots (SCD2), incremental models, contracts, unit tests |
-| BI | Evidence (static site on GitHub Pages) |
+| Orchestration | Dagster (+ dagster-dbt): end-to-end asset lineage, dbt tests as asset checks, daily schedule; Docker Compose |
+| BI | Evidence (static site on GitHub Pages), with in-browser what-if analysis |
 | CI/CD | GitHub Actions: ruff, sqlfluff, pytest, dbt build; nightly rebuild and deploy |
 
 ## Data quality: what the pipeline handles
@@ -86,9 +89,9 @@ The synthetic ERP export contains ten deliberately planted problems that real di
 ## Pipeline facts
 
 - **Volume (medium scale):** 671,541 raw rows loaded; 279,715 order lines; 2.9M SKU-warehouse-day inventory rows.
-- **dbt project:** 41 models (12 staging, 12 intermediate, 17 marts), 2 snapshots, 4 seeds, 206 data tests, 8 unit tests; every mart has an enforced contract.
+- **dbt project:** 42 models (12 staging, 12 intermediate, 18 marts), 2 snapshots, 5 seeds, 214 data tests, 8 unit tests; every mart has an enforced contract.
 - **Build time (medium, on a laptop):** generate 7s, load 6s, `dbt build` 16s.
-- **CI:** lint, 52 pytest tests (including a full dbt build and truth-recovery checks) and a full pipeline build on small data, in about 2.5 minutes.
+- **CI:** lint, 63 pytest tests (including a full dbt build, truth-recovery checks, a full Dagster run, and a check that the dashboard's what-if page reproduces the reorder mart) and a full pipeline build on small data, plus a Docker check of the Dagster stack, in about 3 minutes.
 
 ## Run it yourself
 

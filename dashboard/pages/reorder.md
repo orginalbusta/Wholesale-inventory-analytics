@@ -40,6 +40,7 @@ select distinct supplier_id, supplier_name from marts.reorder_recommendations or
 ```sql reorder
 select
     sku,
+    '/sku/' || sku as sku_link,
     product_name,
     category,
     supplier_name,
@@ -71,7 +72,7 @@ from ${reorder}
 <BigValue data={reorder_summary} value=skus_to_reorder title="SKUs to reorder now" />
 <BigValue data={reorder_summary} value=skus title="SKUs shown" />
 
-<DataTable data={reorder} search=true rows=25>
+<DataTable data={reorder} search=true rows=25 link=sku_link>
     <Column id=sku />
     <Column id=product_name title="Product" />
     <Column id=supplier_name title="Supplier" />

@@ -61,6 +61,22 @@ seeds:
           arguments:
             combination_of_columns: ['month', 'currency']
 
+  - name: service_level_z_scores
+    description: >
+      Standard normal quantile (z-score) for common target service levels, rounded to three
+      decimals. The dashboard's what-if page reads it (via dim_service_levels) instead of
+      computing an inverse normal in the browser.
+    columns:
+      - name: service_level
+        description: Target probability of not stocking out in a replenishment cycle.
+        data_tests:
+          - unique
+          - not_null
+      - name: z_score
+        description: Standard normal quantile for the service level.
+        data_tests:
+          - not_null
+
   - name: abc_xyz_policy
     description: Target service level and safety-stock z-score for each ABC x XYZ class.
     columns:

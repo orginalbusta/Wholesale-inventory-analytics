@@ -11,6 +11,7 @@ Update at the end of every phase: what was built, acceptance check results, know
 | 4: Intermediate and marts | done | 2026-10-15 | All acceptance checks pass; 50 pytest tests; CI enabled |
 | 5: Dashboard, docs site, README v1 | done | 2026-10-15 | Both sites live on GitHub Pages; nightly refresh; README v1 with real findings |
 | 6: Orchestration (Dagster) and Docker | done | 2026-10-15 | 61 assets with end-to-end lineage; Materialize all succeeds; Docker stack checked in CI; 57 pytest tests |
+| 6.5: Interactive dashboard | done | 2026-10-15 | What-if reorder policy page + per-SKU drill-down pages; parity test vs. the mart; 63 pytest tests |
 | 6: Orchestration and Docker | not started | | |
 | 7: CI hardening | not started | | |
 | 8: Snowflake target (optional) | not started | | |
@@ -212,3 +213,29 @@ Dead stock, A-class SKUs below reorder point, A-class stockout days, supplier on
 - The first CI run failed in the container at dbt seeds: the image's `dbt parse` used a relative project dir, and dbt reused that cached parse when Dagster ran dbt from inside `transform/`. Fixed by parsing with absolute paths in the Dockerfile (didn't reproduce on Windows, where the differing `DUCKDB_PATH` forces a full reparse).
 
 **Next:** Phase 6.5, interactive dashboard (what-if reorder policy page + SKU drill-down pages).
+
+## Phase 6.5: Interactive dashboard (2026-10-15)
+
+**Built**
+- `dashboard/pages/what-if.md`: service level per ABC class (current policy or 80-99.9%), lead-time buffer (0-30 days) and review period (7-60 days). Recomputes safety stock, reorder point, reorder-now and order quantity for every SKU in the browser with the `mart_reorder_recommendations` formulas; cards show SKUs to reorder, order value and cash in safety stock against the current policy; chart of safety-stock cash by ABC class; per-SKU table linked to the SKU pages.
+- `dashboard/pages/sku/[sku].md` (one page per launched SKU, including discontinued ones with stock) and `pages/sku/index.md` (searchable list): recommendation, stock on hand for the last 12 months with reorder point and safety stock lines, weekly demand split into fulfilled vs. lost to stockouts, stockout days per month, open and recent POs with quoted vs. actual lead times, and the supplier's scorecard. SKU cells on the Reorder, Inventory health and What-if tables link to these pages.
+- dbt: `service_level_z_scores` seed and `dim_service_levels` mart (the page uses the same z-scores as dbt, no in-browser inverse normal); `unit_cost_usd` and `review_period_days` exposed on `mart_reorder_recommendations` (contract + docs); singular test that the ABC/XYZ policy's z-scores match the lookup; exposure updated.
+- Evidence sources: `service_levels`, `sku_inventory_daily`, `sku_demand_weekly` (both trailing 12 months), `sku_purchase_orders`.
+- SKU pages render in the browser on demand (not pre-rendered); `dashboard/svelte.config.js` adds a single-page-app fallback (`404.html`) that GitHub Pages serves for those URLs. See DECISIONS.md.
+- `tests/test_dashboard_whatif.py` (6 tests) runs the page's own SQL against a test warehouse.
+
+**Acceptance checks**
+| Check | Result |
+|---|---|
+| At default inputs the what-if page reproduces `mart_reorder_recommendations` exactly | yes: service level, safety stock, reorder point, reorder-now and suggested qty match for every SKU (pytest). A deliberate 1% change to one formula term makes the test fail |
+| Moving each input changes outputs in the expected direction | yes (pytest): 99.9% A-class raises only A-class safety stock; a lead-time buffer raises every reorder point; a longer review period raises order quantities without changing what to reorder. In the browser at medium scale: A-class 99.9% gives +29 SKUs to reorder and +$550k cash in safety stock; a 30-day buffer gives +154 SKUs and +$142k |
+| Every SKU has a drill-down page that builds with no query errors | yes: the page query returns exactly one row for every SKU the index lists (pytest); checked in the browser by clicking a table row and by loading a SKU URL directly (served through the 404.html fallback, as on GitHub Pages) |
+| `npm run build:strict` passes | yes, at small and medium |
+| Deploy time stays under ~5 minutes | Evidence build at medium is 42s locally (it was 312s when the 1,400 SKU pages were pre-rendered) |
+| ruff, sqlfluff, pytest, dbt | clean; 63 tests pass; dbt build PASS=267, WARN=4 (planted issues), ERROR=0; 0 deprecation warnings |
+
+**Known issues**
+- Direct visits to a SKU URL return HTTP 404 (with the page rendered by the fallback), so search engines won't index SKU pages. Fine for a demo; noted in DECISIONS.md.
+- In a narrow window (under ~800px) wide tables make the whole page scroll sideways; this was already the case on the Reorder page.
+
+**Next:** Phase 7, CI hardening.

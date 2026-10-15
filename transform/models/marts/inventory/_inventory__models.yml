@@ -3,6 +3,20 @@ version: 2
 # Marts (inventory). Contract-enforced: column names and data types below are guaranteed to consumers.
 
 models:
+- name: dim_service_levels
+  description: 'One row per selectable target service level with its z-score (from the service_level_z_scores seed). Used by the dashboard what-if page so it applies the same z-scores as dbt.'
+  columns:
+  - name: service_level
+    data_type: double
+    description: Target probability of not stocking out in a replenishment cycle.
+    data_tests:
+    - unique
+    - not_null
+  - name: z_score
+    data_type: double
+    description: Standard normal quantile for the service level.
+    data_tests:
+    - not_null
 - name: mart_inventory_health
   description: 'One row per launched SKU (all warehouses) as of the last day of data: stock, value, days of supply, last sale, dead-stock flag, ABC/XYZ class. Answers: what is on hand, what is it worth, and where is cash tied up in dead stock?'
   columns:
@@ -155,6 +169,14 @@ models:
   - name: case_pack_qty
     data_type: integer
     description: Units per case pack; orders are rounded up to whole packs.
+  - name: unit_cost_usd
+    data_type: double
+    description: Current unit cost in USD, to value safety stock and suggested orders.
+    data_tests:
+    - not_null
+  - name: review_period_days
+    data_type: integer
+    description: 'Days of demand an order covers beyond the reorder point (dbt var `review_period_days`).'
   - name: suggested_order_qty
     data_type: double
     description: Quantity to order now, rounded up to whole case packs; 0 unless reorder_now.

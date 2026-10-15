@@ -9,6 +9,7 @@
 --                                         back to all history, then to the quoted lead time).
 --   on_hand_qty / on_order_qty            stock in all warehouses and open PO quantity.
 --   z_score                               from the ABC x XYZ service-level policy seed.
+--   unit_cost_usd                         current unit cost, to value safety stock and orders.
 
 with
 
@@ -133,6 +134,7 @@ final as (
         products.category,
         products.primary_supplier_id as supplier_id,
         products.case_pack_qty,
+        products.unit_cost_usd,
         products.is_active,
         products.launch_date <= data_bounds.as_of_date as is_launched,
         classes.abc_class,
