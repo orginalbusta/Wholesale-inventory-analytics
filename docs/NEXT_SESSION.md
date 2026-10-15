@@ -39,6 +39,8 @@ Full spec and acceptance checks in `docs/05_roadmap.md`.
 - **dbt + DuckDB in one process:** dbt-duckdb keeps a read-write connection open, so tests query with `duckdb.connect(path)` (not `read_only=True`).
 - **sqlfluff** compiles against an in-memory `lint` target (`.sqlfluff`, `profiles.yml`); the pre-commit hook runs serially. Day arithmetic in SQL is plain `date - date` / `date - n` (portable to Snowflake); `dbt.dateadd` only for timestamps.
 - **Regenerating data over an existing warehouse needs `dbt build --full-refresh`** (`make all` does this). `make dbt-build` is incremental, for the simulate-day flow.
+- **Dagster runs dbt from inside `transform/`.** `definitions.py` makes `DUCKDB_PATH` absolute, and any `dbt parse` whose cache Dagster will reuse must use an absolute `--project-dir` (dbt stores seed paths relative to the project dir as given).
+- `make dagster` keeps run history in `.dagster_home/`; the `dagster` entry in `.claude/launch.json` starts the same UI in the browser pane.
 - The pre-commit end-of-file hook sometimes fixes a file and fails the first commit: re-stage and commit again.
 
 ## Useful commands

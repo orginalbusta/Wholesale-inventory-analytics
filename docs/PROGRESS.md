@@ -205,7 +205,10 @@ Dead stock, A-class SKUs below reorder point, A-class stockout days, supplier on
 |---|---|
 | `make dagster` shows the full asset lineage | yes: generate → ingest → staging → snapshots / intermediate → marts, seeds → staging; 61 assets, 207 checks, no stub assets |
 | Materializing all assets succeeds | yes, from the UI ("Materialize all") on the local warehouse: 61 materializations in 34s; checks: 203 pass, 4 warn (the planted issues, same as plain `dbt build`); freshness checks pass. Also covered by `tests/test_dagster.py` on a fresh temp warehouse |
-| `docker compose up` brings up the UI | checked in CI (Docker isn't installed locally; agreed with Harsh): see the `docker` job |
+| `docker compose up` brings up the UI | yes, in CI (Docker isn't installed locally; agreed with Harsh): webserver and daemon healthy, code location loaded, scheduler and run queue running; `daily_pipeline_job` inside the container: dbt PASS=257, WARN=4, ERROR=0, run succeeded. `docker` job ~2 min, in parallel with `build` |
 | ruff, sqlfluff, pytest, dbt deprecations | clean; 57 tests pass; 0 dbt deprecation warnings |
+
+**Known issues**
+- The first CI run failed in the container at dbt seeds: the image's `dbt parse` used a relative project dir, and dbt reused that cached parse when Dagster ran dbt from inside `transform/`. Fixed by parsing with absolute paths in the Dockerfile (didn't reproduce on Windows, where the differing `DUCKDB_PATH` forces a full reparse).
 
 **Next:** Phase 6.5, interactive dashboard (what-if reorder policy page + SKU drill-down pages).
