@@ -1,4 +1,6 @@
 -- Order totals in fct_orders must equal the sum of their lines in fct_order_lines (within a cent).
+-- Dagster shows this test as a check on fct_orders.
+{{ config(meta={'dagster': {'ref': {'name': 'fct_orders'}}}) }}
 
 with
 

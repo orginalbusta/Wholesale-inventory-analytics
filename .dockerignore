@@ -1,0 +1,22 @@
+# Keep the build context small and free of local state and secrets.
+.git
+.github
+.venv
+.env
+*.p8
+*.pem
+.dagster_home
+.tmp_dagster_home_*
+.dlt/pipelines
+.claude
+.preview
+.pytest_cache
+.ruff_cache
+**/__pycache__
+data
+warehouse/*.duckdb*
+transform/target
+transform/dbt_packages
+transform/logs
+logs
+dashboard

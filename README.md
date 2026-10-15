@@ -101,7 +101,10 @@ make setup           # Python deps (uv) and dbt packages
 make all             # generate synthetic data → load → dbt build (DuckDB)
 make dashboard       # local dashboard
 make simulate-day    # add one day of new data, then `make load dbt-build` to see incrementals in action
+make dagster         # Dagster UI at localhost:3000: end-to-end lineage; "Materialize all" runs the pipeline
 ```
+
+Or run the orchestration stack in Docker (Dagster webserver + daemon, no local Python needed): `docker compose up`, then open http://localhost:3000.
 
 `make generate SCALE=medium` builds the larger dataset the findings above come from. A free `FRED_API_KEY` in `.env` is optional: without it, FRED's public CSV download is used, and the build never depends on FRED being reachable.
 

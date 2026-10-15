@@ -10,6 +10,7 @@ Update at the end of every phase: what was built, acceptance check results, know
 | 3: dbt staging, seeds, snapshots | done | 2026-10-15 | All acceptance checks pass; 13 new pytest tests (38 total) |
 | 4: Intermediate and marts | done | 2026-10-15 | All acceptance checks pass; 50 pytest tests; CI enabled |
 | 5: Dashboard, docs site, README v1 | done | 2026-10-15 | Both sites live on GitHub Pages; nightly refresh; README v1 with real findings |
+| 6: Orchestration (Dagster) and Docker | done | 2026-10-15 | 61 assets with end-to-end lineage; Materialize all succeeds; Docker stack checked in CI; 57 pytest tests |
 | 6: Orchestration and Docker | not started | | |
 | 7: CI hardening | not started | | |
 | 8: Snowflake target (optional) | not started | | |
@@ -188,3 +189,23 @@ Dead stock, A-class SKUs below reorder point, A-class stockout days, supplier on
 **Notes:** Pages source is "GitHub Actions". Minimum shippable version (Phases 0-5) is complete.
 
 **Next:** Phase 6, orchestration (Dagster) and Docker.
+
+## Phase 6: Orchestration (Dagster) and Docker (2026-10-15)
+
+**Built**
+- `orchestration/craftstones_dagster/definitions.py` (Dagster 1.13, dagster-dbt 0.29): `erp_extracts` (generator: backfill on first run, then catch-up through yesterday) → `raw_erp/<table>` (one asset per ERP table, a single dlt load) and `raw_fred/observations` → 48 dbt assets from the manifest (seeds, staging, intermediate, marts, snapshots; grouped by layer). dbt sources map onto the `raw_*` keys, so lineage runs from the generator to the marts with no stub assets.
+- Asset checks: every dbt test (data tests and source tests), plus `source_freshness` on the two raw tables with freshness rules (runs `dbt source freshness`, reads `sources.json`). Two singular tests that reference several models got a `meta.dagster.ref` so they show up as checks instead of observations.
+- `daily_pipeline_job` (all assets) and `daily_schedule` (06:00 America/Los_Angeles, off by default). In-process executor and a queued run coordinator with one run at a time, because DuckDB allows one writer (`orchestration/dagster.yaml`).
+- Docker: `Dockerfile` (Python 3.12-slim, uv pinned to 0.9.26, `uv sync --frozen`, manifest built at image build time) and `docker-compose.yml` (webserver + daemon from one image, shared `dagster_home` volume, repo `data/` and `warehouse/` mounted), `.dockerignore`.
+- CI: a `docker` job runs `docker compose up --build --wait`, `scripts/check_dagster_stack.py` (UI up, code location loaded, scheduler and run queue healthy), then executes `daily_pipeline_job` inside the container.
+- `make dagster` keeps run history in `.dagster_home`; README run instructions mention `make dagster` and `docker compose up`.
+
+**Acceptance checks**
+| Check | Result |
+|---|---|
+| `make dagster` shows the full asset lineage | yes: generate → ingest → staging → snapshots / intermediate → marts, seeds → staging; 61 assets, 207 checks, no stub assets |
+| Materializing all assets succeeds | yes, from the UI ("Materialize all") on the local warehouse: 61 materializations in 34s; checks: 203 pass, 4 warn (the planted issues, same as plain `dbt build`); freshness checks pass. Also covered by `tests/test_dagster.py` on a fresh temp warehouse |
+| `docker compose up` brings up the UI | checked in CI (Docker isn't installed locally; agreed with Harsh): see the `docker` job |
+| ruff, sqlfluff, pytest, dbt deprecations | clean; 57 tests pass; 0 dbt deprecation warnings |
+
+**Next:** Phase 6.5, interactive dashboard (what-if reorder policy page + SKU drill-down pages).

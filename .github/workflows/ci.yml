@@ -52,3 +52,30 @@ jobs:
 
       - name: dbt build
         run: uv run dbt build --project-dir transform --profiles-dir transform --target ci
+
+  docker:
+    # Phase 6 acceptance: `docker compose up` brings up the Dagster UI, and the full asset job
+    # (generate -> load -> dbt build) succeeds inside the container.
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Build image and start webserver + daemon
+        run: docker compose up --build --detach --wait
+
+      - name: UI is up, code location loaded, daemons healthy
+        run: python3 scripts/check_dagster_stack.py
+
+      - name: Materialize every asset inside the container
+        run: >
+          docker compose exec -T webserver
+          dagster job execute -m orchestration.craftstones_dagster.definitions -j daily_pipeline_job
+
+      - name: Container logs
+        if: failure()
+        run: docker compose logs --no-color
+
+      - name: Stop
+        if: always()
+        run: docker compose down --volumes

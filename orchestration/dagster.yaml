@@ -1,0 +1,12 @@
+# Dagster instance settings, copied into DAGSTER_HOME (by `make dagster` and the Docker image).
+# Run history and schedules are stored in SQLite files next to this file.
+
+# DuckDB allows one writer at a time, so queue runs and execute them one after another.
+run_coordinator:
+  module: dagster._core.run_coordinator
+  class: QueuedRunCoordinator
+  config:
+    max_concurrent_runs: 1
+
+telemetry:
+  enabled: false

@@ -1,5 +1,7 @@
 -- After SKU normalization, every distinct SKU on order lines is either a known product or
 -- quarantined as an orphan. Nothing falls through the cracks.
+-- Dagster shows this test as a check on stg_erp__sales_order_lines.
+{{ config(meta={'dagster': {'ref': {'name': 'stg_erp__sales_order_lines'}}}) }}
 
 with
 

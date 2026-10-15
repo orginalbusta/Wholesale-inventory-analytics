@@ -1,12 +1,38 @@
-# `docker compose up` → Dagster UI at http://localhost:3000 (Phase 6).
+# `docker compose up` -> Dagster UI at http://localhost:3000.
+# Two services from one image: the webserver (UI) and the daemon (schedules and the run queue).
+# They share run history through the dagster_home volume; data/ and warehouse/ are the repo's own
+# folders, so runs in the container and on the host build the same DuckDB warehouse.
+x-dagster: &dagster
+  build: .
+  image: craftstones-dagster
+  env_file:
+    - path: .env
+      required: false
+  environment:
+    # Fixed paths inside the container, whatever .env says for the host.
+    DUCKDB_PATH: /app/warehouse/craftstones.duckdb
+  volumes:
+    - ./data:/app/data
+    - ./warehouse:/app/warehouse
+    - dagster_home:/app/.dagster_home
+
 services:
-  dagster:
-    build: .
+  webserver:
+    <<: *dagster
     ports:
       - "3000:3000"
-    env_file:
-      - path: .env
-        required: false
-    volumes:
-      - ./data:/app/data
-      - ./warehouse:/app/warehouse
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:3000/server_info')"]
+      interval: 5s
+      timeout: 5s
+      retries: 24
+
+  daemon:
+    <<: *dagster
+    command: ["dagster-daemon", "run", "-m", "orchestration.craftstones_dagster.definitions"]
+    depends_on:
+      webserver:
+        condition: service_healthy
+
+volumes:
+  dagster_home:

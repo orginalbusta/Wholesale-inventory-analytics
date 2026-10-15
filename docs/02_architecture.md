@@ -114,4 +114,4 @@ The generator has two modes:
 1. **`backfill`**: generates the full history (default: 2023-10-01 → 2026-09-30) into `data/raw/erp/`.
 2. **`simulate-day`**: reads the current generator state (`data/raw/_state.json`), generates **one more day** of orders, PO receipts, inventory movements, a few late status updates to existing orders, and occasional price/cost changes on products, then writes them as new parquet files and advances the state.
 
-This makes incremental dbt models, `merge` loads in dlt, and dbt snapshots behave like they would against a live ERP. It's a good interview talking point. The Dagster daily schedule calls `simulate-day → load → dbt build`.
+This makes incremental dbt models, `merge` loads in dlt, and dbt snapshots behave like they would against a live ERP. It's a good interview talking point. The Dagster daily schedule (off by default) materializes `erp_extracts` (catch-up: one simulated day per missing day through yesterday) → `raw_erp/*` + `raw_fred/observations` (dlt) → every dbt asset, with dbt tests and source freshness as asset checks.

@@ -45,8 +45,11 @@ lint:
 test:
 	uv run pytest -q
 
+# Run history persists in .dagster_home (git-ignored). UI at http://localhost:3000
 dagster:
-	uv run dagster dev
+	mkdir -p .dagster_home
+	cp orchestration/dagster.yaml .dagster_home/dagster.yaml
+	DAGSTER_HOME="$(CURDIR)/.dagster_home" uv run dagster dev -p 3000
 
 dashboard:
 	cd dashboard && npm ci --no-audit --no-fund && npm run sources && npm run dev

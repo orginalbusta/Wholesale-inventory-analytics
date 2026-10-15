@@ -1,28 +1,27 @@
 # Next session: pick up here
 
-*Written 2026-10-15 at the end of Phase 5. Read this first, then `CLAUDE.md`, `docs/PROGRESS.md` and `docs/DECISIONS.md` (newest entries at the top).*
+*Updated 2026-10-15 at the end of Phase 6. Read this first, then `CLAUDE.md`, `docs/PROGRESS.md` and `docs/DECISIONS.md` (newest entries at the top).*
 
 ## Where things stand
 
-- **Phases 0-5 are done**: the minimum shippable version. Last commit: `9b48338 docs: close phase 5 with live site checks` (pushed, working tree clean apart from this file).
+- **Phases 0-6 are done.** Phase 6 added Dagster orchestration (`make dagster`, 61 assets, dbt tests as asset checks, daily schedule off by default) and a Docker stack (`docker compose up`: webserver + daemon), checked by the `docker` job in `ci.yml`.
 - **Live:** dashboard https://orginalbusta.github.io/Wholesale-inventory-analytics/ · dbt docs https://orginalbusta.github.io/Wholesale-inventory-analytics/dbt-docs/ · repo https://github.com/orginalbusta/Wholesale-inventory-analytics
-- **CI** (`ci.yml`) runs on every PR and push to main (~2.5 min, green). **Deploy** (`deploy-pages.yml`) runs on push to main and nightly at 09:00 UTC: medium backfill + catch-up through yesterday → load → dbt build → docs → Evidence → Pages (~2.5 min, green). Pages source is set to "GitHub Actions".
-- **Tests:** 52 pytest tests pass; full `dbt build` = PASS 257, WARN 4 (the 4 warnings are planted data-quality issues being caught, by design), ERROR 0.
+- **CI** (`ci.yml`): `build` job (lint, pytest, small dbt build) and `docker` job, on every PR and push to main. **Deploy** (`deploy-pages.yml`) runs on push to main and nightly at 09:00 UTC: medium backfill + catch-up through yesterday → load → dbt build → docs → Evidence → Pages. Pages source is "GitHub Actions".
+- **Tests:** 57 pytest tests pass; full `dbt build` = PASS 257, WARN 4 (the planted data-quality issues being caught, by design), ERROR 0.
 
 ## Resume prompt (paste to start)
 
-> Read `docs/NEXT_SESSION.md`, then `CLAUDE.md`, `docs/PROGRESS.md` and the top of `docs/DECISIONS.md`. Then start Phase 6 from `docs/05_roadmap.md`.
+> Read `docs/NEXT_SESSION.md`, then `CLAUDE.md`, `docs/PROGRESS.md` and the top of `docs/DECISIONS.md`. Then start Phase 6.5 from `docs/05_roadmap.md`.
 
-## Phase 6 plan (Dagster + Docker)
+## Phase 6.5 plan (interactive dashboard)
 
-From `docs/05_roadmap.md`. Accept when `make dagster` shows the full asset lineage, materializing all assets succeeds, and `docker compose up` brings up the UI.
+Full spec and acceptance checks in `docs/05_roadmap.md`.
 
-1. Check the current Dagster / dagster-dbt APIs first (pinned: dagster 1.13, dagster-dbt 0.29; the API has changed across releases). Expect `DbtProject`, `@dbt_assets`, `DbtCliResource`.
-2. `orchestration/craftstones_dagster/definitions.py` (stub with the plan in its docstring): assets `simulate_day` (or `catch_up`) → `erp_raw` / `fred_raw` (call `ingestion.load_erp.load_erp` / `ingestion.load_fred.load_fred`) → dbt assets from the manifest, with dbt sources mapped to the raw assets so lineage is end to end → `dbt source freshness` as an asset check. Daily schedule ~06:00 America/Los_Angeles, `default_status=STOPPED`.
-3. dbt tests should surface as Dagster asset checks (dagster-dbt does this from the manifest).
-4. `Dockerfile` / `docker-compose.yml` exist from the scaffold: pin the `uv` image (currently `ghcr.io/astral-sh/uv:latest`), use Python 3.12, run webserver + daemon.
-5. **Docker is not installed** on Harsh's machine (`winget install Docker.DockerDesktop`, needs WSL2). Ask before relying on it; the Docker acceptance check can also run in CI.
-6. Then: **Phase 6.5 (interactive dashboard, added 2026-10-15: what-if reorder policy page + SKU drill-down pages; see roadmap)**, Phase 7 (CI hardening, slim CI), Phase 8 (Snowflake: Harsh starts the 30-day trial right before; auto-suspend + resource monitor), Phase 9 (README polish, license, final review).
+1. What-if reorder policy page (`dashboard/pages/what-if.md`): inputs for service level, lead-time buffer and review period; recompute the `04_dbt_spec.md` reorder formulas per SKU in the browser from `mart_reorder_recommendations` inputs. z comes from a seeded lookup, not an in-browser inverse-normal. Expose any missing inputs in the mart (contract + docs).
+2. Parity test: at default inputs, the page's SQL must reproduce the mart exactly.
+3. SKU drill-down pages (`dashboard/pages/sku/[sku].md`), linked from the Reorder, Inventory health and What-if tables; keep time series to trailing 12 months so the medium build stays fast.
+4. Check which Evidence input components exist in the pinned static edition (v40.1.8) before designing the controls.
+5. Then: Phase 7 (CI hardening, slim CI; pin `ubuntu-24.04` before the Ubuntu 26 runner migration), Phase 8 (Snowflake: Harsh starts the 30-day trial right before; auto-suspend + resource monitor), Phase 9 (README polish, license, final review).
 
 ## Open items for Harsh
 
