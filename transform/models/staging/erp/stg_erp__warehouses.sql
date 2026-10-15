@@ -22,7 +22,7 @@ deduplicated as (
 renamed as (
 
     select
-        warehouse_id,
+        warehouse_idx,
         trim(warehouse_name) as warehouse_name,
         lower(trim(warehouse_type)) as warehouse_type,
         trim(city) as city,
