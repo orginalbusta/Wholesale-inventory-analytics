@@ -12,6 +12,7 @@ Update at the end of every phase: what was built, acceptance check results, know
 | 5: Dashboard, docs site, README v1 | done | 2026-10-15 | Both sites live on GitHub Pages; nightly refresh; README v1 with real findings |
 | 6: Orchestration (Dagster) and Docker | done | 2026-10-15 | 61 assets with end-to-end lineage; Materialize all succeeds; Docker stack checked in CI; 57 pytest tests |
 | 6.5: Interactive dashboard | done | 2026-10-15 | What-if reorder policy page + per-SKU drill-down pages; parity test vs. the mart; 63 pytest tests |
+| 7: CI hardening | done | 2026-10-15 | Pinned runners, changed-SQL lint, readable dbt failures, deploy carry-over fixes stale-cache errors; broken-model PR fails readably, clean PR passes; 67 pytest tests |
 | 6: Orchestration and Docker | not started | | |
 | 7: CI hardening | not started | | |
 | 8: Snowflake target (optional) | not started | | |
@@ -240,3 +241,23 @@ Dead stock, A-class SKUs below reorder point, A-class stockout days, supplier on
 - Pre-existing, seen while checking the live site: for up to ~10 minutes after a deploy, a returning visitor can get query errors, because GitHub Pages caches `data/manifest.json` and the stale copy points at the previous deploy's parquet files. A reload after the cache expires fixes it. Candidate fix for Phase 7.
 
 **Next:** Phase 7, CI hardening.
+
+## Phase 7: CI hardening (2026-10-15)
+
+**Built**
+- Both workflows run on `ubuntu-24.04` instead of `ubuntu-latest` (the `latest` label moves to Ubuntu 26 from 2026-10-19).
+- `ci.yml`: dbt packages cached (uv was already cached); PRs lint only the SQL files they change, pushes to main lint everything; the pipeline (generate, load, `dbt build`) runs before pytest, so a broken model fails in the dbt step; on a dbt failure, `scripts/dbt_failure_summary.py` writes a table of failed nodes and dbt's messages to the job summary (also used in the deploy).
+- `deploy-pages.yml`: `scripts/carry_over_deploy.py` writes `deploy-files.txt` (the files this deploy built) and downloads the previous deploy's hashed files (`data/**`, `_app/immutable/**`) that the new build no longer has, one generation only. Fixes the stale-cache errors found in Phase 6.5. Also caches dbt packages and has the dbt failure summary.
+- Tests: `tests/test_carry_over_deploy.py` (2) and `tests/test_dbt_failure_summary.py` (2).
+- Slim CI (`state:modified+`) was considered and not built; see DECISIONS.md.
+
+**Acceptance checks**
+| Check | Result |
+|---|---|
+| A PR with a deliberately broken model fails CI with a readable error | yes: [PR #1](https://github.com/orginalbusta/Wholesale-inventory-analytics/pull/1) referenced a column that doesn't exist. The `dbt build` step failed and the job summary read: `stg_erp__warehouses` / error / Binder Error: Referenced column "warehouse_idx" not found ... Candidate bindings: "warehouse_id", ... / 10 downstream node(s) were skipped. The Docker job failed on the same model |
+| A clean PR passes | yes: the fix pushed to the same PR passed both jobs (build 2m55s, docker 1m35s); the PR was then closed unmerged and its branch deleted |
+| CI under 6 minutes | yes: about 3 minutes (build and docker jobs run in parallel) |
+| Stale-cache fix works on the live site | yes: the second deploy carried 43 files (11.9 MB) from the first; the previous deploy's parquet files and JS chunks return 200 from GitHub Pages |
+| ruff, sqlfluff, pytest | clean; 67 tests pass |
+
+**Next:** Phase 8, Snowflake target (needs Harsh's trial account).

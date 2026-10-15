@@ -91,7 +91,7 @@ The synthetic ERP export contains ten deliberately planted problems that real di
 - **Volume (medium scale):** 671,541 raw rows loaded; 279,715 order lines; 2.9M SKU-warehouse-day inventory rows.
 - **dbt project:** 42 models (12 staging, 12 intermediate, 18 marts), 2 snapshots, 5 seeds, 214 data tests, 8 unit tests; every mart has an enforced contract.
 - **Build time (medium, on a laptop):** generate 7s, load 6s, `dbt build` 16s.
-- **CI:** lint, 63 pytest tests (including a full dbt build, truth-recovery checks, a full Dagster run, and a check that the dashboard's what-if page reproduces the reorder mart) and a full pipeline build on small data, plus a Docker check of the Dagster stack, in about 3 minutes.
+- **CI:** on every PR and push: lint (PRs lint only the SQL they change), a full pipeline build on small data, 67 pytest tests (including truth-recovery checks, a full Dagster run, and a check that the dashboard's what-if page reproduces the reorder mart), and a Docker check of the Dagster stack, in about 3 minutes. A broken model fails with a summary table naming the model and dbt's error.
 
 ## Run it yourself
 

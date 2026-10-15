@@ -1,28 +1,27 @@
 # Next session: pick up here
 
-*Updated 2026-10-15 at the end of Phase 6.5. Read this first, then `CLAUDE.md`, `docs/PROGRESS.md` and `docs/DECISIONS.md` (newest entries at the top).*
+*Updated 2026-10-15 at the end of Phase 7. Read this first, then `CLAUDE.md`, `docs/PROGRESS.md` and `docs/DECISIONS.md` (newest entries at the top).*
 
 ## Where things stand
 
-- **Phases 0-6.5 are done.** Phase 6.5 added the what-if reorder policy page and per-SKU drill-down pages (rendered in the browser via a 404.html SPA fallback). Phase 6 added Dagster orchestration (`make dagster`, 61 assets, dbt tests as asset checks, daily schedule off by default) and a Docker stack (`docker compose up`: webserver + daemon), checked by the `docker` job in `ci.yml`.
+- **Phases 0-7 are done.** Phase 7 pinned the runners to `ubuntu-24.04`, made dbt failures readable in CI, and fixed the stale-cache errors after deploys (each deploy carries the previous deploy's hashed files). Phase 6.5 added the what-if reorder policy page and per-SKU drill-down pages (rendered in the browser via a 404.html SPA fallback). Phase 6 added Dagster orchestration (`make dagster`, 61 assets, dbt tests as asset checks, daily schedule off by default) and a Docker stack (`docker compose up`: webserver + daemon), checked by the `docker` job in `ci.yml`.
 - **Live:** dashboard https://orginalbusta.github.io/Wholesale-inventory-analytics/ · dbt docs https://orginalbusta.github.io/Wholesale-inventory-analytics/dbt-docs/ · repo https://github.com/orginalbusta/Wholesale-inventory-analytics
 - **CI** (`ci.yml`): `build` job (lint, pytest, small dbt build) and `docker` job, on every PR and push to main. **Deploy** (`deploy-pages.yml`) runs on push to main and nightly at 09:00 UTC: medium backfill + catch-up through yesterday → load → dbt build → docs → Evidence → Pages. Pages source is "GitHub Actions".
-- **Tests:** 63 pytest tests pass; full `dbt build` = PASS 267, WARN 4 (the planted data-quality issues being caught, by design), ERROR 0.
+- **Tests:** 67 pytest tests pass; full `dbt build` = PASS 267, WARN 4 (the planted data-quality issues being caught, by design), ERROR 0.
 
 ## Resume prompt (paste to start)
 
-> Read `docs/NEXT_SESSION.md`, then `CLAUDE.md`, `docs/PROGRESS.md` and the top of `docs/DECISIONS.md`. Then start Phase 7 from `docs/05_roadmap.md`.
+> Read `docs/NEXT_SESSION.md`, then `CLAUDE.md`, `docs/PROGRESS.md` and the top of `docs/DECISIONS.md`. Then start Phase 8 from `docs/05_roadmap.md` (needs Harsh's Snowflake trial).
 
-## Phase 7 plan (CI hardening)
+## Phase 8 plan (Snowflake, optional)
 
-From `docs/05_roadmap.md`. Accept when a PR with a deliberately broken model fails CI with a readable error and a clean PR passes.
+From `docs/05_roadmap.md`. Accept when `dbt build --target snowflake` passes and the README has a "Running on Snowflake" section.
 
-1. Pin `runs-on: ubuntu-24.04` in both workflows before the Ubuntu 26 runner migration (starts 2026-10-19).
-2. Lint only changed SQL on PRs; cache uv and dbt packages; keep CI under 6 minutes (now about 3, with the `build` and `docker` jobs in parallel).
-3. Optional slim CI: `dbt build --select state:modified+` against main's manifest (upload it as an artifact from the deploy).
-4. Stale-cache errors after a deploy (see PROGRESS Phase 6.5 known issues): GitHub Pages caches `data/manifest.json` for ~10 minutes, so returning visitors may briefly load the previous deploy's parquet paths. Look for a fix (e.g. cache-busting the manifest URL, or keeping the previous deploy's data files for one cycle).
-5. Prove it: open a PR with a broken model, confirm the failure message is readable, close it.
-6. Then: Phase 8 (Snowflake: Harsh starts the 30-day trial right before; auto-suspend + resource monitor), Phase 9 (README polish, license, final review).
+1. **Ask Harsh first.** He starts the 30-day Snowflake trial right before this phase, so credits aren't wasted. Never put credentials in chat or the repo; they go in `.env` (git-ignored).
+2. Write `snowflake/setup.sql` for him to run once as ACCOUNTADMIN: role `TRANSFORMER`, service user with key-pair auth (he generates the key with `openssl`, attaches the public key), database `CRAFTSTONES_ANALYTICS`, X-Small warehouse with `AUTO_SUSPEND = 60`, and a resource monitor with a hard credit cap he chooses.
+3. `profiles.yml` already has a `snowflake` target (key-pair auth from env vars); `ingestion/destinations.py` already supports `WAREHOUSE=snowflake`. Install with `uv sync --extra snowflake`.
+4. Run medium end-to-end on Snowflake; fix any adapter differences (cross-database macros, date arithmetic). Record build time, warehouse size and credits used; take a screenshot or two for the README.
+5. The public site and CI stay on DuckDB. Then Phase 9 (README polish, license, final review).
 
 ## Open items for Harsh
 
