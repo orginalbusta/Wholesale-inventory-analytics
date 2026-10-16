@@ -71,8 +71,6 @@ dbt models must be **warehouse-agnostic**: use `dbt_utils` / cross-database macr
 
 ```
 wholesale-inventory-analytics/
-├── CLAUDE.md                 # brief for Claude Code
-├── KICKOFF_PROMPT.md         # first prompt to paste
 ├── README.md                 # the case study (public face of the project)
 ├── Makefile
 ├── pyproject.toml            # uv-managed Python deps

@@ -305,6 +305,6 @@ Dead stock, A-class SKUs below reorder point, A-class stockout days, supplier on
 | Links | every README link and image resolves (external links return 200) |
 | ruff, sqlfluff, pytest, dbt | clean; 67 tests pass; dbt PASS 267, WARN 4; 0 deprecations (full parse) |
 
-**Open for Harsh:** confirm the README's "As-is vs. ideal-state" left column, and decide whether the AI-workflow files (`CLAUDE.md`, `KICKOFF_PROMPT.md`, `docs/NEXT_SESSION.md`) stay in the public repo.
+**Open for Harsh:** confirm the README's "As-is vs. ideal-state" left column. (Resolved the same day: the AI-assistant working files were moved out of the public repo and kept locally; see DECISIONS.md.)
 
 **Status:** all roadmap phases (0-9, plus 6.5) are done. The data-science layer (`docs/06_future_ds_layer.md`) waits for Harsh's go-ahead.

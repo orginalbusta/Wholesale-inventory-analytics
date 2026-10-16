@@ -45,3 +45,9 @@ dashboard/build/
 .preview/
 site/
 .claude/
+
+# Local only: AI-assistant working files and the private project history (kept on disk, not published)
+CLAUDE.md
+KICKOFF_PROMPT.md
+docs/NEXT_SESSION.md
+local-notes/

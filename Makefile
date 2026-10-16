@@ -1,4 +1,4 @@
-# Keep in sync with the command list in CLAUDE.md.
+# Project commands; the README's "Run it yourself" section shows the common ones.
 SCALE ?= small
 TARGET ?= dev
 DBT = uv run dbt --no-use-colors
