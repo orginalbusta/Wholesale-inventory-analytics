@@ -14,9 +14,6 @@ Update at the end of every phase: what was built, acceptance check results, know
 | 6.5: Interactive dashboard | done | 2026-10-15 | What-if reorder policy page + per-SKU drill-down pages; parity test vs. the mart; 63 pytest tests |
 | 7: CI hardening | done | 2026-10-15 | Pinned runners, changed-SQL lint, readable dbt failures, deploy carry-over fixes stale-cache errors; broken-model PR fails readably, clean PR passes; 67 pytest tests |
 | 8: Snowflake target | done | 2026-10-16 | dbt build --target snowflake passes (PASS 267, WARN 4); all 18 marts identical to DuckDB; ~0.2 credits |
-| 6: Orchestration and Docker | not started | | |
-| 7: CI hardening | not started | | |
-| 8: Snowflake target (optional) | not started | | |
 | 9: Polish | not started | | |
 
 ## Phase 0: Environment and skeleton (2026-10-14)
