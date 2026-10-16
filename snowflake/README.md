@@ -88,14 +88,62 @@ uv run --env-file .env dbt debug --project-dir transform --profiles-dir transfor
 
 `All checks passed!` means you're ready. This briefly resumes the warehouse (a fraction of a credit).
 
-## What happens next (Phase 8)
+## 6. Run the pipeline on Snowflake
 
-Once `dbt debug` passes, the Phase 8 run is: generate medium data, load it with dlt
-(`WAREHOUSE=snowflake`), run `dbt build --target snowflake`, fix any differences between the
-adapters, then record build time, credits used and a screenshot or two for the main README.
-The public site and CI keep running on DuckDB.
+The loaders pick their destination from `WAREHOUSE`, and a value set in the shell wins over
+`.env`, so set it only for the two load commands. dbt writes to a separate `target_snowflake`
+folder so the DuckDB build's artifacts stay untouched.
 
-Credits used so far (data can lag by up to a few hours), as ACCOUNTADMIN:
+**PowerShell (Windows):**
+
+```powershell
+uv run python -m generator.generate --scale medium --mode backfill
+$env:WAREHOUSE = "snowflake"
+uv run --env-file .env python -m ingestion.load_erp
+uv run --env-file .env python -m ingestion.load_fred
+Remove-Item Env:WAREHOUSE
+uv run --env-file .env dbt build --project-dir transform --profiles-dir transform --target snowflake --target-path target_snowflake
+```
+
+**Bash (macOS, Linux, Git Bash):**
+
+```bash
+uv run python -m generator.generate --scale medium --mode backfill
+WAREHOUSE=snowflake uv run --env-file .env python -m ingestion.load_erp
+WAREHOUSE=snowflake uv run --env-file .env python -m ingestion.load_fred
+uv run --env-file .env dbt build --project-dir transform --profiles-dir transform --target snowflake --target-path target_snowflake
+```
+
+To check that both warehouses produce the same results, build DuckDB from the same files
+(`uv run python -m ingestion.load_erp --full-refresh`, `uv run python -m ingestion.load_fred`,
+`uv run dbt build --project-dir transform --profiles-dir transform --full-refresh`), then compare
+every mart's row count and the sum of every numeric column:
+
+```bash
+uv run --env-file .env python scripts/compare_warehouses.py
+```
+
+## Results (Phase 8, 2026-10-16)
+
+Medium scale (seed 42, data through 2026-09-30: 1,200 SKUs, 671,541 raw ERP rows), X-Small warehouse.
+
+| Step | Snowflake (X-Small) | DuckDB (laptop) |
+|---|---|---|
+| Load ERP extracts (dlt) | 33s | 3s |
+| Load FRED (dlt) | 67s, mostly waiting on FRED's public CSV download | 15s |
+| `dbt build`, full (272 nodes) | 57s: PASS 267, WARN 4, ERROR 0 | 13s: same counts |
+| One simulated day: load + incremental `dbt build` | 23s + 52s | 2s load (build not timed) |
+| Marts compared (`scripts/compare_warehouses.py`) | 18 of 18 identical (row counts and every numeric column's sum), after the full build and again after the incremental run | |
+
+The 4 warnings are the planted data-quality issues, caught the same way on both warehouses.
+DuckDB is faster at this size because it runs in-process with no network round trips; Snowflake's
+advantage shows at data volumes and concurrency far beyond this project.
+
+**Cost:** the warehouse ran for about 10 minutes in total (1,041 queries, 137 seconds of compute).
+At 1 credit per hour for X-Small that is at most about 0.2 credits; the metering query above gives
+the exact figure once Snowflake reports it (it lags by up to a few hours).
+
+**Credits used** (as ACCOUNTADMIN; data can lag by up to a few hours):
 
 ```sql
 select warehouse_name, sum(credits_used) as credits
@@ -117,4 +165,5 @@ created, or let the trial expire. Then delete the key files in `~/.snowflake/` a
 | `JWT token is invalid` | The public key in Snowflake doesn't match the private key file, or the user is wrong. Re-run the `alter user dbt_svc set rsa_public_key = ...` line with the current `.pub` contents |
 | `Bad decrypt` / `incorrect password` | `SNOWFLAKE_PRIVATE_KEY_PASSPHRASE` doesn't match the passphrase used in step 2 |
 | `Could not connect ... account` | `SNOWFLAKE_ACCOUNT` should be `ORGNAME-ACCOUNTNAME` (with a hyphen), not the full URL |
+| `grant role transformer to user identifier($my_user)` fails with "does not exist" | Your Snowflake login name has lowercase letters; `setup.sql` now quotes it (`'"' \|\| current_user() \|\| '"'`). Re-run that line from the current script |
 | `No active warehouse` / warehouse suspended by monitor | The credit cap was reached. Raise `credit_quota` on `CRAFTSTONES_MONITOR`, or wait for next month's reset |

@@ -1,31 +1,35 @@
 # Next session: pick up here
 
-*Updated 2026-10-15 at the end of Phase 7. Read this first, then `CLAUDE.md`, `docs/PROGRESS.md` and `docs/DECISIONS.md` (newest entries at the top).*
+*Updated 2026-10-16 at the end of Phase 8. Read this first, then `CLAUDE.md`, `docs/PROGRESS.md` and `docs/DECISIONS.md` (newest entries at the top).*
 
 ## Where things stand
 
-- **Phases 0-7 are done.** Phase 7 pinned the runners to `ubuntu-24.04`, made dbt failures readable in CI, and fixed the stale-cache errors after deploys (each deploy carries the previous deploy's hashed files). Phase 6.5 added the what-if reorder policy page and per-SKU drill-down pages (rendered in the browser via a 404.html SPA fallback). Phase 6 added Dagster orchestration (`make dagster`, 61 assets, dbt tests as asset checks, daily schedule off by default) and a Docker stack (`docker compose up`: webserver + daemon), checked by the `docker` job in `ci.yml`.
+- **Phases 0-8 are done.** Phase 8 ran the medium pipeline on Snowflake: dbt build passes and all 18 marts match DuckDB exactly. Phase 7 pinned the runners to `ubuntu-24.04`, made dbt failures readable in CI, and fixed the stale-cache errors after deploys (each deploy carries the previous deploy's hashed files). Phase 6.5 added the what-if reorder policy page and per-SKU drill-down pages (rendered in the browser via a 404.html SPA fallback). Phase 6 added Dagster orchestration (`make dagster`, 61 assets, dbt tests as asset checks, daily schedule off by default) and a Docker stack (`docker compose up`: webserver + daemon), checked by the `docker` job in `ci.yml`.
 - **Live:** dashboard https://orginalbusta.github.io/Wholesale-inventory-analytics/ · dbt docs https://orginalbusta.github.io/Wholesale-inventory-analytics/dbt-docs/ · repo https://github.com/orginalbusta/Wholesale-inventory-analytics
 - **CI** (`ci.yml`): `build` job (lint, pytest, small dbt build) and `docker` job, on every PR and push to main. **Deploy** (`deploy-pages.yml`) runs on push to main and nightly at 09:00 UTC: medium backfill + catch-up through yesterday → load → dbt build → docs → Evidence → Pages. Pages source is "GitHub Actions".
 - **Tests:** 67 pytest tests pass; full `dbt build` = PASS 267, WARN 4 (the planted data-quality issues being caught, by design), ERROR 0.
 
 ## Resume prompt (paste to start)
 
-> Read `docs/NEXT_SESSION.md`, then `CLAUDE.md`, `docs/PROGRESS.md` and the top of `docs/DECISIONS.md`. Then start Phase 8 from `docs/05_roadmap.md` (needs Harsh's Snowflake trial).
+> Read `docs/NEXT_SESSION.md`, then `CLAUDE.md`, `docs/PROGRESS.md` and the top of `docs/DECISIONS.md`. Then start Phase 9 from `docs/05_roadmap.md`.
 
-## Phase 8 plan (Snowflake, optional)
+## Phase 9 plan (polish for hiring managers)
 
-From `docs/05_roadmap.md`. Accept when `dbt build --target snowflake` passes and the README has a "Running on Snowflake" section.
+From `docs/05_roadmap.md`. Accept when someone unfamiliar with the project understands the business problem, the architecture and the main findings within 2 minutes of opening the README.
 
-1. **Ready for Harsh:** `snowflake/setup.sql`, `snowflake/teardown.sql` and the walkthrough `snowflake/README.md` (trial signup, key pair via Git Bash `openssl`, run the script as ACCOUNTADMIN, fill `.env`, `dbt debug`). He starts the trial right before this phase. Never ask for credentials in chat; they live in `.env` (git-ignored) and `~/.snowflake/`.
-2. Start once he says `dbt debug --target snowflake` passes: `uv sync --all-groups --extra snowflake`; every Snowflake command runs as `uv run --env-file .env ...` (dbt doesn't load `.env`), with `WAREHOUSE=snowflake` set for the dlt loads only.
-3. Verify the `dbt-snowflake` and `dlt[snowflake]` versions against PyPI before relying on the extras; check dlt's Snowflake identifier casing against the dbt sources (`raw_erp`, `raw_fred`).
-4. Run medium end-to-end on Snowflake; fix adapter differences (cross-database macros, date arithmetic). Record build time, warehouse size and credits used (`snowflake/README.md` has the metering query); take a screenshot or two for the README, and add a "Running on Snowflake" section that links to `snowflake/README.md`.
-5. The public site and CI stay on DuckDB. Then Phase 9 (README polish, license, final review).
+1. README final pass: 3-5 findings written as business decisions, each with its number and the mart it came from (numbers from the pinned medium snapshot, seed 42, through 2026-09-30; never invented). Point to the what-if page as the interactive version of the reorder finding.
+2. "Design decisions and trade-offs" and "If I had more time" sections (the latter points to `docs/06_future_ds_layer.md`).
+3. Repo hygiene: MIT `LICENSE` file (pyproject already says MIT), badges, no secrets, no large files, decide what to do with `KICKOFF_PROMPT.md` and `docs/NEXT_SESSION.md` in a public repo.
+4. Read the README cold, as a hiring manager would; tighten.
+
+## Snowflake notes (Phase 8 is done)
+
+- Everything Snowflake runs through `uv run --env-file .env ...`; on Windows PowerShell set `$env:WAREHOUSE = "snowflake"` for the dlt loads only (bash `WAREHOUSE=snowflake cmd` doesn't work there). Commands: `snowflake/README.md` section 6.
+- Optional: exact credits from `snowflake.account_usage.warehouse_metering_history` (ACCOUNTADMIN), and a Snowsight screenshot for the README. The trial expires 30 days after Harsh started it; `snowflake/teardown.sql` removes everything.
 
 ## Open items for Harsh
 
-- **Phase 8 prep is done:** follow `snowflake/README.md` (start the trial, create the key pair, run `setup.sql`, fill `.env`, run `dbt debug`), then say so.
+- Optional, for the README: run the credits query in `snowflake/README.md` (exact Phase 8 cost) and take a Snowsight screenshot or two.
 - **Confirm the README "As-is vs. ideal-state" left column** (what he actually built at Craftstones, including "Single analyst, no review process"). It's public now and was kept as he originally wrote it.
 - `docs/01_business_context.md` still has assumptions marked for his review (product mix, sourcing countries).
 - Optional: a free `FRED_API_KEY` as a repo secret (works without it via FRED's public CSV).

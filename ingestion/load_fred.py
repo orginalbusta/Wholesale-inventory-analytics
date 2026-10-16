@@ -31,7 +31,7 @@ import dlt
 import requests
 from dotenv import load_dotenv
 
-from ingestion.destinations import PIPELINES_DIR, REPO_ROOT, get_destination
+from ingestion.destinations import REPO_ROOT, default_pipelines_dir, get_destination
 
 PIPELINE_NAME = "craftstones_fred"
 DATASET_NAME = "raw_fred"
@@ -137,7 +137,7 @@ def load_fred(duckdb_path: str | Path | None = None, pipelines_dir: Path | None 
         pipeline_name=PIPELINE_NAME,
         destination=get_destination(duckdb_path),
         dataset_name=DATASET_NAME,
-        pipelines_dir=str(pipelines_dir or PIPELINES_DIR),
+        pipelines_dir=str(pipelines_dir or default_pipelines_dir()),
     )
     latest = latest_loaded_dates(pipeline)
     start_by_series = {

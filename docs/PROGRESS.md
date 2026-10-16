@@ -13,6 +13,7 @@ Update at the end of every phase: what was built, acceptance check results, know
 | 6: Orchestration (Dagster) and Docker | done | 2026-10-15 | 61 assets with end-to-end lineage; Materialize all succeeds; Docker stack checked in CI; 57 pytest tests |
 | 6.5: Interactive dashboard | done | 2026-10-15 | What-if reorder policy page + per-SKU drill-down pages; parity test vs. the mart; 63 pytest tests |
 | 7: CI hardening | done | 2026-10-15 | Pinned runners, changed-SQL lint, readable dbt failures, deploy carry-over fixes stale-cache errors; broken-model PR fails readably, clean PR passes; 67 pytest tests |
+| 8: Snowflake target | done | 2026-10-16 | dbt build --target snowflake passes (PASS 267, WARN 4); all 18 marts identical to DuckDB; ~0.2 credits |
 | 6: Orchestration and Docker | not started | | |
 | 7: CI hardening | not started | | |
 | 8: Snowflake target (optional) | not started | | |
@@ -261,3 +262,27 @@ Dead stock, A-class SKUs below reorder point, A-class stockout days, supplier on
 | ruff, sqlfluff, pytest | clean; 67 tests pass |
 
 **Next:** Phase 8, Snowflake target (needs Harsh's trial account).
+
+## Phase 8: Snowflake target (2026-10-16)
+
+**Built**
+- Harsh set up the trial with `snowflake/setup.sql` (one fix found there: a lowercase login name needs quoting in `identifier($my_user)`); `dbt debug --target snowflake` passed as `DBT_SVC` with key-pair auth.
+- `ingestion/destinations.py`: dlt's local state now lives in one folder per warehouse (`.dlt/pipelines/<warehouse>/`), so the DuckDB and Snowflake pipelines (same names) never share state.
+- Sources: `freshness` and `loaded_at_field` moved under `config:`. The Snowflake build log surfaced this deprecation (4 occurrences); earlier checks missed it because a cached (partial) parse skips it. Now 0 deprecations with `--no-partial-parse`.
+- `scripts/compare_warehouses.py`: compares every mart's row count and numeric column sums between DuckDB and Snowflake.
+- `snowflake/README.md`: run steps for PowerShell and Bash, results and cost. README: "Running on Snowflake" section.
+- No model changes were needed: the SQL written in Phases 3-4 (plain date arithmetic, `dbt.dateadd` only for timestamps, dispatch-free macros) ran on Snowflake unchanged.
+
+**Acceptance checks**
+| Check | Result |
+|---|---|
+| `dbt build --target snowflake` passes | yes: PASS 267, WARN 4 (the planted issues), ERROR 0 in 57s on X-Small, medium data (seed 42, through 2026-09-30) |
+| Medium end-to-end on Snowflake | yes: dlt loaded 671,541 ERP rows in 33s and 4,025 FRED observations in 67s (FRED download-bound); then one simulated day: load 23s, incremental build 52s, same test results |
+| Cross-database behaviour matches | yes: all 18 marts identical to the DuckDB build from the same files (row counts and every numeric column's sum), after the full build and after the incremental run |
+| Warehouse size and credits | X-Small, 60s auto-suspend, 10-credit monitor. About 10 minutes of warehouse time (1,041 queries, 137s compute), so at most ~0.2 credits; exact metering wasn't available yet (Snowflake lags by up to a few hours) |
+| README "Running on Snowflake" | yes, with a link to `snowflake/README.md` |
+| ruff, sqlfluff, pytest, DuckDB dbt build | clean; 67 tests pass; DuckDB PASS 267, WARN 4; 0 deprecations |
+
+**Still open (optional):** exact credits from `snowflake.account_usage.warehouse_metering_history`, and a Snowsight screenshot or two for the README (needs Harsh's login).
+
+**Next:** Phase 9, polish for hiring managers.

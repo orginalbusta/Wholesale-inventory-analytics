@@ -2,7 +2,7 @@
 
     WAREHOUSE=duckdb     (default) DuckDB file at DUCKDB_PATH (default warehouse/craftstones.duckdb)
     WAREHOUSE=snowflake  Snowflake with key-pair auth from the SNOWFLAKE_* variables in .env.example
-                         (optional target, exercised in Phase 8)
+                         (optional target; setup in snowflake/README.md)
 
 Secrets come only from environment variables / .env (git-ignored).
 """
@@ -17,6 +17,16 @@ from dotenv import load_dotenv
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 PIPELINES_DIR = REPO_ROOT / ".dlt" / "pipelines"  # local dlt working state (git-ignored)
+
+
+def default_pipelines_dir() -> Path:
+    """dlt's local working state, one folder per warehouse.
+
+    The ERP and FRED pipelines have the same names whichever warehouse they load into; separate
+    folders keep a Snowflake run from picking up state that belongs to the DuckDB pipeline.
+    """
+    load_dotenv(REPO_ROOT / ".env")
+    return PIPELINES_DIR / os.getenv("WAREHOUSE", "duckdb").lower()
 
 
 def get_destination(duckdb_path: str | Path | None = None):

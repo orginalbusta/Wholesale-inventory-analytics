@@ -111,6 +111,18 @@ Or run the orchestration stack in Docker (Dagster webserver + daemon, no local P
 
 `make generate SCALE=medium` builds the larger dataset the findings above come from. A free `FRED_API_KEY` in `.env` is optional: without it, FRED's public CSV download is used, and the build never depends on FRED being reachable.
 
+## Running on Snowflake
+
+The same dlt loads and dbt project also run on Snowflake (`--target snowflake`, key-pair auth); the
+public site and CI stay on DuckDB, which is free. Setup and commands: [`snowflake/README.md`](snowflake/README.md).
+
+On the medium dataset with an X-Small warehouse: the full `dbt build` (272 nodes) took **57 seconds**
+with the same results as DuckDB (PASS 267, WARN 4, ERROR 0), and all **18 marts were identical**
+across the two warehouses (row counts and the sum of every numeric column), after a full build
+and again after an incremental run. The whole session used at most about **0.2 credits**
+(about 10 minutes of warehouse time; the warehouse suspends after 60 idle seconds and has a hard
+credit cap).
+
 ## Design decisions and trade-offs
 
 Every decision and deviation from the original plan is logged, with reasoning, in [`docs/DECISIONS.md`](docs/DECISIONS.md). The main ones:

@@ -56,7 +56,7 @@ grant ownership on database craftstones_analytics to role transformer copy curre
 grant ownership on schema craftstones_analytics.public to role transformer copy current grants;
 
 -- Let your own login use the role too, so you can browse the results in Snowsight.
-set my_user = current_user();
+set my_user = '"' || current_user() || '"';
 grant role transformer to user identifier($my_user);
 
 

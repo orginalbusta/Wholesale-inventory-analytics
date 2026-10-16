@@ -28,7 +28,7 @@ import dlt
 import pyarrow as pa
 import pyarrow.parquet as pq
 
-from ingestion.destinations import PIPELINES_DIR, get_destination
+from ingestion.destinations import default_pipelines_dir, get_destination
 
 PIPELINE_NAME = "craftstones_erp"
 DATASET_NAME = "raw_erp"
@@ -147,7 +147,7 @@ def make_pipeline(
         pipeline_name=PIPELINE_NAME,
         destination=get_destination(duckdb_path),
         dataset_name=DATASET_NAME,
-        pipelines_dir=str(pipelines_dir or PIPELINES_DIR),
+        pipelines_dir=str(pipelines_dir or default_pipelines_dir()),
     )
 
 

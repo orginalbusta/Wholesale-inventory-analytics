@@ -11,7 +11,8 @@ sources:
       generator run) and `_dlt_load_id`. Never modified by dbt. Contains deliberately
       planted data-quality issues; see docs/03_data_spec.md.
     schema: raw_erp
-    loaded_at_field: _extracted_at
+    config:
+      loaded_at_field: _extracted_at
     tables:
       - name: warehouses
         description: Stock locations (main warehouse and seasonal gem-show booths).
@@ -27,9 +28,10 @@ sources:
         description: Customer master. One row per extracted version; contains duplicate business records (issue 1).
       - name: sales_orders
         description: Sales order headers. One row per extracted version; status changes arrive late (issue 5).
-        freshness:
-          warn_after: {count: 2, period: day}
-          error_after: {count: 5, period: day}
+        config:
+          freshness:
+            warn_after: {count: 2, period: day}
+            error_after: {count: 5, period: day}
       - name: sales_order_lines
         description: Sales order lines. Negative quantities are returns (issue 6); some SKUs are mis-keyed (issues 3, 9).
       - name: purchase_orders
@@ -38,11 +40,13 @@ sources:
         description: Purchase order lines. `quantity_received` is null until the PO arrives.
       - name: inventory_movements
         description: Signed stock ledger, the source of truth for on-hand quantities.
-        freshness:
-          warn_after: {count: 2, period: day}
-          error_after: {count: 5, period: day}
+        config:
+          freshness:
+            warn_after: {count: 2, period: day}
+            error_after: {count: 5, period: day}
       - name: cycle_counts
         description: Physical stock counts at the main warehouse; every variance has an adjustment movement.
       - name: load_audit
         description: Written by the loader, one row per loaded extract file (table, run_id, SHA-256, rows).
-        loaded_at_field: loaded_at
+        config:
+          loaded_at_field: loaded_at

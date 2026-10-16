@@ -18,6 +18,7 @@ warehouse/*.duckdb.wal
 
 # dbt
 transform/target/
+transform/target_snowflake/
 transform/dbt_packages/
 transform/logs/
 transform/.user.yml
