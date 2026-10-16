@@ -45,12 +45,23 @@ Bubbles are sized by spend. Suppliers in the bottom right are both late and unpr
 ## Quoted vs. actual lead time
 
 ```sql lead_times
-select supplier_name, 'Quoted' as measure, quoted_lead_time_mean_days as days from ${suppliers}
+-- The 15 suppliers whose deliveries run furthest past their quotes (all 60 are in the scorecard).
+with worst as (
+    select * from ${suppliers}
+    order by quoted_vs_actual_gap_days desc
+    limit 15
+)
+select supplier_name, 'Quoted' as measure, quoted_lead_time_mean_days as days, quoted_vs_actual_gap_days
+from worst
 union all
-select supplier_name, 'Actual', lead_time_mean_days from ${suppliers}
+select supplier_name, 'Actual', lead_time_mean_days, quoted_vs_actual_gap_days
+from worst
+order by quoted_vs_actual_gap_days desc, measure
 ```
 
-<BarChart data={lead_times} x=supplier_name y=days series=measure type=grouped swapXY=true title="Mean lead time in days" />
+Every supplier delivers slower than it quotes. These are the 15 with the biggest gap; all 60 are in the scorecard below.
+
+<BarChart data={lead_times} x=supplier_name y=days series=measure type=grouped swapXY=true sort=false title="Mean lead time in days: quoted vs. actual" />
 
 ## On-time rate by quarter
 
@@ -61,13 +72,17 @@ select
     sum(spend_usd) as spend_usd
 from marts.supplier_performance_quarterly
 where received_po_count > 0
+    -- complete quarters only: a partly elapsed quarter only has the POs that arrived quickly
+    and quarter_start_date + interval 3 month <= (select max(as_of_date) from marts.inventory_health) + interval 1 day
 group by 1
 order by 1
 ```
 
-<LineChart data={quarterly} x=quarter_start_date y=on_time_rate yFmt=pct0 title="All suppliers, weighted by received POs" />
+<LineChart data={quarterly} x=quarter_start_date y=on_time_rate yFmt=pct0 yMin=0 yMax=1 title="All suppliers, weighted by received POs (complete quarters)" />
 
 ## Scorecard
+
+Lead times in days; on time and fill rate across all received POs.
 
 <DataTable data={suppliers} rows=20>
     <Column id=supplier_name title="Supplier" />
@@ -75,9 +90,7 @@ order by 1
     <Column id=po_count title="POs" />
     <Column id=spend_usd title="Spend" fmt=usd0k />
     <Column id=on_time_rate title="On time" fmt=pct0 />
-    <Column id=quoted_lead_time_mean_days title="Quoted (days)" fmt=num0 />
-    <Column id=lead_time_mean_days title="Actual (days)" fmt=num0 />
-    <Column id=lead_time_std_days title="Actual σ" fmt=num1 />
+    <Column id=quoted_lead_time_mean_days title="Quoted" fmt=num0 />
+    <Column id=lead_time_mean_days title="Actual" fmt=num0 />
     <Column id=fill_rate title="Fill rate" fmt=pct0 />
-    <Column id=short_shipment_count title="Short shipments" />
 </DataTable>

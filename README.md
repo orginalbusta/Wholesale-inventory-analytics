@@ -6,6 +6,8 @@
 
 **[Live dashboard](https://orginalbusta.github.io/Wholesale-inventory-analytics/)** · **[What-if reorder policy](https://orginalbusta.github.io/Wholesale-inventory-analytics/what-if/)** · **[dbt docs & lineage](https://orginalbusta.github.io/Wholesale-inventory-analytics/dbt-docs/)**
 
+**New here?** [How it works in 2 minutes](docs/HOW_IT_WORKS.md): the pipeline top down, the tools and skills behind each layer, and the main design decisions.
+
 From 2023 to 2026 I was the sole data analyst at **Craftstones USA**, a ~20-person wholesale stone distributor in San Diego, where I built the company's data function from scratch. This project answers the question I kept asking myself there: **if I could rebuild the data platform from zero with a modern stack, how would I do it?**
 
 It centers on the decision that matters most to a distributor: **which products should we reorder, when, and how much, and where is cash tied up in dead stock?**
@@ -136,7 +138,7 @@ Or run the orchestration stack in Docker (Dagster webserver + daemon, no local P
 | [`orchestration/`](orchestration/) | Dagster code location (assets, checks, schedule) |
 | [`dashboard/`](dashboard/) | Evidence pages, including the what-if and per-SKU pages |
 | [`tests/`](tests/) | pytest: generator, loads, dbt builds, truth recovery, Dagster, dashboard parity |
-| [`docs/`](docs/) | Specs, the [decision log](docs/DECISIONS.md) and the [progress log](docs/PROGRESS.md) |
+| [`docs/`](docs/) | The [2-minute overview](docs/HOW_IT_WORKS.md), specs, the [decision log](docs/DECISIONS.md) and the [progress log](docs/PROGRESS.md) |
 
 ## Running on Snowflake
 

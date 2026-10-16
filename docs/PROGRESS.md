@@ -308,3 +308,19 @@ Dead stock, A-class SKUs below reorder point, A-class stockout days, supplier on
 **Open for Harsh:** confirm the README's "As-is vs. ideal-state" left column. (Resolved the same day: the AI-assistant working files were moved out of the public repo and kept locally; see DECISIONS.md.)
 
 **Status:** all roadmap phases (0-9, plus 6.5) are done. The data-science layer (`docs/06_future_ds_layer.md`) waits for Harsh's go-ahead.
+
+## Review pass: functionality, UI, readability (2026-10-16)
+
+**Checked**
+- Every live dashboard page loaded headless at desktop (1400px) and phone (390px) width: charts render, no console errors except the two expected 404s on SKU pages (the page itself, and the pre-built query results Evidence looks for before running queries in the browser).
+- Fresh clone from GitHub: setup 11s, then generate, load and `dbt build --full-refresh` on small data in 71s, PASS 267, WARN 4, ERROR 0.
+
+**Fixed**
+- Wide tables made the Reorder and What-if pages scroll sideways at desktop width, and clipped columns on four other tables. Every table is trimmed to columns that fit (detail stays on each SKU's page); raw `true`/`false` became readable labels.
+- Days-of-supply charts: buckets in their natural order, with clean labels ("Out of stock" ... "No demand") instead of numbered, truncated codes sorted by size.
+- Suppliers: the quoted-vs-actual chart shows the 15 suppliers with the biggest gap (60 bars clipped long names); the quarterly on-time line uses complete quarters and a 0-100% axis.
+- Sales and overview: complete months only (see DECISIONS.md), $M axes instead of "$25,000k", readable channel and customer-type names.
+- SKU pages: subtitle and lead-time text built in SQL (no stray spaces or raw codes like `actual_trailing_12m`), PO status words, a round top tick on the stock chart, whole-day ticks on the stockout chart.
+
+**Added**
+- `docs/HOW_IT_WORKS.md`: a one-page, top-down overview for recruiters (pipeline layers, tools, skills, design decisions), linked from the top of the README.

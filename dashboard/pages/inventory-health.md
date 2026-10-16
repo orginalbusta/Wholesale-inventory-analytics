@@ -38,7 +38,8 @@ select
     on_hand_value_usd,
     last_sale_date,
     days_since_last_sale,
-    is_active
+    is_active,
+    case when is_active then 'Active' else 'Discontinued' end as status
 from marts.inventory_health
 where is_dead_stock
 order by on_hand_value_usd desc
@@ -54,14 +55,12 @@ order by 2 desc
 <BarChart data={dead_by_category} x=category y=dead_stock_value_usd yFmt=usd0k swapXY=true title="Dead-stock value by category" />
 
 <DataTable data={dead_stock} rows=15 link=sku_link>
-    <Column id=sku />
+    <Column id=sku title="SKU" />
     <Column id=product_name title="Product" />
-    <Column id=category />
     <Column id=on_hand_qty title="On hand" fmt=num0 />
-    <Column id=on_hand_value_usd title="Value at cost" fmt=usd0 />
+    <Column id=on_hand_value_usd title="Value" fmt=usd0 />
     <Column id=last_sale_date title="Last sale" />
-    <Column id=days_since_last_sale title="Days since sale" fmt=num0 />
-    <Column id=is_active title="Still sold" />
+    <Column id=status title="Status" />
 </DataTable>
 
 ## Days of supply
@@ -69,22 +68,32 @@ order by 2 desc
 How long current stock lasts at the last 90 days' demand rate.
 
 ```sql days_of_supply
+with bucketed as (
+    select
+        case
+            when avg_daily_demand_90d = 0 or avg_daily_demand_90d is null then 7
+            when days_of_supply = 0 then 1
+            when days_of_supply <= 30 then 2
+            when days_of_supply <= 90 then 3
+            when days_of_supply <= 180 then 4
+            when days_of_supply <= 365 then 5
+            else 6
+        end as bucket_order,
+        on_hand_value_usd
+    from marts.inventory_health
+)
 select
-    case
-        when avg_daily_demand_90d = 0 or avg_daily_demand_90d is null then '7. no recent demand'
-        when days_of_supply = 0 then '1. out of stock'
-        when days_of_supply <= 30 then '2. 1-30 days'
-        when days_of_supply <= 90 then '3. 31-90 days'
-        when days_of_supply <= 180 then '4. 91-180 days'
-        when days_of_supply <= 365 then '5. 181-365 days'
-        else '6. over a year'
-    end as days_of_supply_bucket,
+    bucket_order,
+    ['Out of stock', '1-30 days', '31-90 days', '91-180 days', '181-365 days', 'Over a year', 'No demand'][bucket_order]
+        as days_of_supply_bucket,
     count(*) as skus,
     sum(on_hand_value_usd) as on_hand_value_usd
-from marts.inventory_health
-group by 1
+from bucketed
+group by 1, 2
 order by 1
 ```
 
-<BarChart data={days_of_supply} x=days_of_supply_bucket y=skus title="SKUs by days of supply" />
-<BarChart data={days_of_supply} x=days_of_supply_bucket y=on_hand_value_usd yFmt=usd0k title="Inventory value by days of supply" />
+<BarChart data={days_of_supply} x=days_of_supply_bucket y=skus sort=false title="SKUs by days of supply" />
+<BarChart data={days_of_supply} x=days_of_supply_bucket y=on_hand_value_usd yFmt=usd0k sort=false title="Inventory value by days of supply" />
+
+*No demand* = no sales or lost orders in the last 90 days, so days of supply can't be calculated.

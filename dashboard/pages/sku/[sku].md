@@ -30,19 +30,38 @@ select
     h.days_since_last_sale,
     h.is_dead_stock,
     h.as_of_date,
+    strftime(h.as_of_date, '%b %-d, %Y') as as_of_label,
+    printf('%d%%', cast(round(r.target_service_level * 100) as integer)) as service_level_label,
+    printf('%.1f', r.lead_time_mean_days) as lead_time_mean_label,
+    printf('%.1f', r.lead_time_std_days) as lead_time_std_label,
+    case r.lead_time_source
+        when 'actual_trailing_12m' then 'actual deliveries, last 12 months'
+        when 'actual_all_history' then 'all actual deliveries'
+        when 'quoted' then 'the supplier quote; no deliveries yet'
+        else r.lead_time_source
+    end as lead_time_source_label,
     -- Chart range that always shows the reorder point line as well as the stock history.
-    1.1 * greatest(
-        coalesce(r.reorder_point_qty, 0),
-        coalesce((select max(i.on_hand_qty) from marts.sku_inventory_daily as i where i.sku = h.sku), 0),
-        1
-    ) as stock_chart_max,
+    -- rounded up to two significant digits, so the top tick is a round number
+    ceil(stock_peak / pow(10, floor(log10(stock_peak)) - 1)) * pow(10, floor(log10(stock_peak)) - 1)
+        as stock_chart_max,
     case
         when r.sku is null then 'Discontinued: not reordered'
         when r.reorder_now
             then 'Reorder ' || format('{:,}', cast(r.suggested_order_qty as bigint)) || ' units now'
         else 'No order needed today'
     end as recommendation
-from marts.inventory_health as h
+from (
+    select
+        *,
+        1.05 * greatest(
+            coalesce(r0.reorder_point_qty, 0),
+            coalesce((select max(i.on_hand_qty) from marts.sku_inventory_daily as i where i.sku = h0.sku), 0),
+            10
+        ) as stock_peak
+    from marts.inventory_health as h0
+    left join (select sku as r_sku, reorder_point_qty from marts.reorder_recommendations) as r0
+        on h0.sku = r0.r_sku
+) as h
 left join marts.reorder_recommendations as r using (sku)
 left join marts.supplier_performance as s on h.supplier_id = s.supplier_id
 where h.sku = '${params.sku}'
@@ -52,7 +71,7 @@ where h.sku = '${params.sku}'
 
 # {sku_info[0].sku}: {sku_info[0].product_name}
 
-{sku_info[0].category} · supplier **{sku_info[0].supplier_name}** · class **{sku_info[0].class}** {#if sku_info[0].is_active}(target service level <Value data={sku_info} column=target_service_level fmt=pct0 />){:else} · discontinued{/if} · data as of <Value data={sku_info} column=as_of_date fmt="mmm d, yyyy" />
+{sku_info[0].category} · supplier **{sku_info[0].supplier_name}** · class **{sku_info[0].class}**{#if sku_info[0].is_active}, target service level {sku_info[0].service_level_label}{:else} · discontinued{/if} · data as of {sku_info[0].as_of_label}
 
 <BigValue data={sku_info} value=recommendation title="Recommendation" />
 <BigValue data={sku_info} value=on_hand_qty title="On hand" fmt=num0 />
@@ -94,7 +113,12 @@ where sku = '${params.sku}'
 order by month_start_date
 ```
 
-<BarChart data={stockouts} x=month_start_date y=stockout_days yFmt=num0 title="Stockout days per month" emptySet=pass emptyMessage="No stockouts in the last 12 months." />
+```sql stockout_axis
+-- At least 0-5 on the axis, so small whole-day counts don't produce repeated ticks
+select greatest(5, max(stockout_days)) as y_max from ${stockouts}
+```
+
+<BarChart data={stockouts} x=month_start_date y=stockout_days yFmt=num0 yMax={stockout_axis[0]?.y_max ?? 5} title="Stockout days per month" emptySet=pass emptyMessage="No stockouts in the last 12 months." />
 
 ## Purchase orders
 
@@ -104,7 +128,7 @@ select
     order_date,
     expected_arrival_date,
     strftime(actual_arrival_date, '%Y-%m-%d') as actual_arrival_date,
-    po_status,
+    replace(po_status, '_', ' ') as po_status,
     quantity_ordered,
     open_quantity,
     quoted_lead_time_days,
@@ -115,19 +139,23 @@ where sku = '${params.sku}'
 order by order_date desc
 ```
 
-Open orders and the last 12 months. Lead times used for the reorder point: mean <Value data={sku_info} column=lead_time_mean_days fmt=num1 /> days, standard deviation <Value data={sku_info} column=lead_time_std_days fmt=num1 /> days (<Value data={sku_info} column=lead_time_source />).
+Open orders and the last 12 months.
+
+{#if sku_info[0].is_active}
+
+The reorder point uses a mean lead time of {sku_info[0].lead_time_mean_label} days with a standard deviation of {sku_info[0].lead_time_std_label} days, from {sku_info[0].lead_time_source_label}.
+
+{/if}
 
 <DataTable data={purchase_orders} rows=10 emptySet=pass emptyMessage="No purchase orders in the last 12 months.">
-    <Column id=po_id title="PO" />
     <Column id=order_date title="Ordered" />
     <Column id=expected_arrival_date title="Expected" />
     <Column id=actual_arrival_date title="Arrived" />
     <Column id=po_status title="Status" />
     <Column id=quantity_ordered title="Qty" fmt=num0 />
-    <Column id=open_quantity title="Open qty" fmt=num0 />
-    <Column id=quoted_lead_time_days title="Quoted lead time" fmt=num0 />
-    <Column id=actual_lead_time_days title="Actual lead time" fmt=num0 />
-    <Column id=days_late title="Days late" fmt=num0 contentType=delta downIsGood=true />
+    <Column id=quoted_lead_time_days title="Quoted days" fmt=num0 />
+    <Column id=actual_lead_time_days title="Actual days" fmt=num0 />
+    <Column id=days_late title="Days late" fmt=num0 />
 </DataTable>
 
 ## Supplier scorecard

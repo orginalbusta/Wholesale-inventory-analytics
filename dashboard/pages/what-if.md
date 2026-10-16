@@ -173,6 +173,7 @@ select
     scenario_service_level,
     reorder_now,
     scenario_reorder_now,
+    case when scenario_reorder_now then 'Yes' else '' end as scenario_reorder_label,
     suggested_order_qty,
     scenario_suggested_order_qty,
     scenario_suggested_order_qty - suggested_order_qty as order_qty_change,
@@ -203,22 +204,15 @@ Each card shows the scenario, with the change against the current policy underne
 
 ## Every SKU under the scenario
 
-Click a row to open the SKU's page.
+Changes are against the current policy. Click a row to open the SKU's page.
 
 <DataTable data={whatif_changes} search=true rows=25 link=sku_link>
-    <Column id=sku />
+    <Column id=sku title="SKU" />
     <Column id=product_name title="Product" />
-    <Column id=supplier_name title="Supplier" />
-    <Column id=class title="ABC/XYZ" />
-    <Column id=target_service_level title="Current SL" fmt=pct1 />
-    <Column id=scenario_service_level title="Scenario SL" fmt=pct1 />
-    <Column id=reorder_now title="Reorder now (current)" />
-    <Column id=scenario_reorder_now title="Reorder now (scenario)" />
-    <Column id=suggested_order_qty title="Qty (current)" fmt=num0 />
-    <Column id=scenario_suggested_order_qty title="Qty (scenario)" fmt=num0 />
-    <Column id=safety_stock_qty title="Safety stock (current)" fmt=num0 />
-    <Column id=scenario_safety_stock_qty title="Safety stock (scenario)" fmt=num0 />
-    <Column id=safety_stock_value_change_usd title="Safety-stock cash change" fmt=usd0 contentType=delta />
+    <Column id=scenario_reorder_label title="Reorder" />
+    <Column id=scenario_suggested_order_qty title="Order qty" fmt=num0 />
+    <Column id=order_qty_change title="Qty change" fmt=num0 contentType=delta />
+    <Column id=safety_stock_value_change_usd title="Cash change" fmt=usd0 contentType=delta />
 </DataTable>
 
 <Details title="How this page works">

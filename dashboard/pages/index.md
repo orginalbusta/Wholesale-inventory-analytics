@@ -27,7 +27,11 @@ sales as (
         sum(gross_margin_usd) / sum(net_revenue_usd) as gross_margin_pct_12m,
         sum(unfilled_revenue_usd) as unfilled_revenue_12m_usd
     from marts.sales_monthly
-    where month_start_date > (select max(month_start_date) from marts.sales_monthly) - interval 12 month
+    -- the last 12 complete months
+    where month_start_date + interval 1 month <= (select max(as_of_date) from marts.inventory_health) + interval 1 day
+        and month_start_date > (
+            select max(month_start_date) from marts.sales_monthly where month_start_date + interval 1 month <= (select max(as_of_date) from marts.inventory_health) + interval 1 day
+        ) - interval 12 month
 )
 select
     *,
@@ -49,14 +53,16 @@ Data as of <Value data={kpis} column=as_of_date fmt="mmm d, yyyy" />. The questi
 ## Revenue and margin by month
 
 ```sql monthly
+-- Complete months only, so a partly elapsed month doesn't look like a drop.
+with months as (select * from marts.sales_monthly where month_start_date + interval 1 month <= (select max(as_of_date) from marts.inventory_health) + interval 1 day)
 select month_start_date, 'Net revenue' as measure, sum(net_revenue_usd) as usd
-from marts.sales_monthly group by 1
+from months group by 1
 union all
 select month_start_date, 'Gross margin', sum(gross_margin_usd)
-from marts.sales_monthly group by 1
+from months group by 1
 union all
 select month_start_date, 'Revenue lost to stockouts', sum(unfilled_revenue_usd)
-from marts.sales_monthly group by 1
+from months group by 1
 order by 1, 2
 ```
 
@@ -65,7 +71,7 @@ order by 1, 2
     x=month_start_date
     y=usd
     series=measure
-    yFmt=usd0k
+    yFmt=usd1m
     yAxisTitle=false
     title="Net revenue, gross margin, and revenue lost to stockouts"
 >

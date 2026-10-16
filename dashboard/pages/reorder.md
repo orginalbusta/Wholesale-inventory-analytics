@@ -46,6 +46,7 @@ select
     supplier_name,
     abc_class || xyz_class as class,
     reorder_now,
+    case when reorder_now then 'Yes' else '' end as reorder_label,
     suggested_order_qty,
     on_hand_qty,
     on_order_qty,
@@ -72,19 +73,13 @@ from ${reorder}
 <BigValue data={reorder_summary} value=skus_to_reorder title="SKUs to reorder now" />
 <BigValue data={reorder_summary} value=skus title="SKUs shown" />
 
+Order qty is 0 when no order is needed. Click a row for the SKU's page: supplier, demand, lead times and the full calculation inputs.
+
 <DataTable data={reorder} search=true rows=25 link=sku_link>
-    <Column id=sku />
+    <Column id=sku title="SKU" />
     <Column id=product_name title="Product" />
-    <Column id=supplier_name title="Supplier" />
-    <Column id=class title="ABC/XYZ" />
-    <Column id=reorder_now title="Reorder now" />
-    <Column id=suggested_order_qty title="Suggested qty" fmt=num0 />
+    <Column id=class title="Class" />
+    <Column id=suggested_order_qty title="Order qty" fmt=num0 />
     <Column id=on_hand_qty title="On hand" fmt=num0 />
-    <Column id=on_order_qty title="On order" fmt=num0 />
-    <Column id=reorder_point_qty title="Reorder point" fmt=num0 />
-    <Column id=safety_stock_qty title="Safety stock" fmt=num0 />
-    <Column id=demand_mean_daily title="Demand / day" fmt=num1 />
-    <Column id=lead_time_mean_days title="Lead time (days)" fmt=num0 />
-    <Column id=lead_time_std_days title="Lead time σ" fmt=num1 />
-    <Column id=target_service_level title="Service level" fmt=pct0 />
+    <Column id=reorder_point_qty title="Reorder at" fmt=num0 />
 </DataTable>

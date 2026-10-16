@@ -14,6 +14,7 @@ select
     category,
     sum(net_revenue_usd) as net_revenue_usd
 from marts.sales_monthly
+where month_start_date + interval 1 month <= (select max(as_of_date) from marts.inventory_health) + interval 1 day  -- complete months only
 group by 1, 2
 order by 1, 2
 ```
@@ -24,7 +25,7 @@ select start_date, end_date, split_part(show_name, ' ', 1) as show_label
 from marts.gem_shows
 ```
 
-<BarChart data={by_category} x=month_start_date y=net_revenue_usd series=category type=stacked yFmt=usd0k title="Net revenue by month and category">
+<BarChart data={by_category} x=month_start_date y=net_revenue_usd series=category type=stacked yFmt=usd1m title="Net revenue by month and category">
     <ReferenceArea data={gem_shows} xMin=start_date xMax=end_date label=show_label color=info />
 </BarChart>
 
@@ -33,7 +34,16 @@ Jewelry components and crystal clusters peak before the holidays; decor and land
 ## Channel and customer mix
 
 ```sql by_channel
-select channel, sum(net_revenue_usd) as net_revenue_usd, sum(order_count) as orders
+select
+    case channel
+        when 'phone_email' then 'Phone / email'
+        when 'b2b_portal' then 'B2B portal'
+        when 'marketplace' then 'Marketplace'
+        when 'gem_show' then 'Gem shows'
+        else channel
+    end as channel,
+    sum(net_revenue_usd) as net_revenue_usd,
+    sum(order_count) as orders
 from marts.sales_monthly
 group by 1
 order by 2 desc
@@ -41,7 +51,7 @@ order by 2 desc
 
 ```sql by_customer_type
 select
-    customer_type,
+    upper(left(customer_type, 1)) || replace(substr(customer_type, 2), '_', ' ') as customer_type,
     sum(net_revenue_usd) as net_revenue_usd,
     sum(gross_margin_usd) / sum(net_revenue_usd) as gross_margin_pct
 from marts.sales_monthly
@@ -49,8 +59,8 @@ group by 1
 order by 2 desc
 ```
 
-<BarChart data={by_channel} x=channel y=net_revenue_usd yFmt=usd0k title="Revenue by channel" />
-<BarChart data={by_customer_type} x=customer_type y=net_revenue_usd yFmt=usd0k swapXY=true title="Revenue by customer type" />
+<BarChart data={by_channel} x=channel y=net_revenue_usd yFmt=usd1m title="Revenue by channel, all history" />
+<BarChart data={by_customer_type} x=customer_type y=net_revenue_usd yFmt=usd1m swapXY=true title="Revenue by customer type, all history" />
 
 ## Customer segments (RFM)
 
@@ -67,10 +77,17 @@ order by 3 desc
 ```
 
 <BarChart data={segments} x=segment y=customers title="Customers by segment" />
-<BarChart data={segments} x=segment y=revenue_12m_usd yFmt=usd0k title="Last-12-month revenue by segment" />
+<BarChart data={segments} x=segment y=revenue_12m_usd yFmt=usd1m title="Last-12-month revenue by segment" />
 
 ```sql at_risk
-select customer_name, customer_type, state, last_order_date, recency_days, frequency_12m, monetary_12m_usd
+select
+    customer_name,
+    upper(left(customer_type, 1)) || replace(substr(customer_type, 2), '_', ' ') as customer_type,
+    state,
+    last_order_date,
+    recency_days,
+    frequency_12m,
+    monetary_12m_usd
 from marts.customer_rfm
 where segment = 'At Risk'
 order by monetary_12m_usd desc
@@ -81,7 +98,6 @@ order by monetary_12m_usd desc
 <DataTable data={at_risk} rows=10>
     <Column id=customer_name title="Customer" />
     <Column id=customer_type title="Type" />
-    <Column id=state />
     <Column id=last_order_date title="Last order" />
     <Column id=recency_days title="Days since" fmt=num0 />
     <Column id=frequency_12m title="Orders (12m)" />
