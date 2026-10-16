@@ -14,7 +14,7 @@ Update at the end of every phase: what was built, acceptance check results, know
 | 6.5: Interactive dashboard | done | 2026-10-15 | What-if reorder policy page + per-SKU drill-down pages; parity test vs. the mart; 63 pytest tests |
 | 7: CI hardening | done | 2026-10-15 | Pinned runners, changed-SQL lint, readable dbt failures, deploy carry-over fixes stale-cache errors; broken-model PR fails readably, clean PR passes; 67 pytest tests |
 | 8: Snowflake target | done | 2026-10-16 | dbt build --target snowflake passes (PASS 267, WARN 4); all 18 marts identical to DuckDB; ~0.2 credits |
-| 9: Polish | not started | | |
+| 9: Polish | done | 2026-10-16 | README reworked for a 2-minute read (at a glance, screenshots, 5 verified findings, repo map); MIT license; RFM made deterministic; hygiene checks clean |
 
 ## Phase 0: Environment and skeleton (2026-10-14)
 
@@ -283,3 +283,28 @@ Dead stock, A-class SKUs below reorder point, A-class stockout days, supplier on
 **Still open (optional):** exact credits from `snowflake.account_usage.warehouse_metering_history`, and a Snowsight screenshot or two for the README (needs Harsh's login).
 
 **Next:** Phase 9, polish for hiring managers.
+
+## Phase 9: Polish for hiring managers (2026-10-16)
+
+**Built**
+- README: an "At a glance" block and the what-if screenshot right under the disclaimers; "The business problem" now comes before the findings; a fifth finding (the cost of a higher service level, from the what-if page's own SQL); the dashboard overview screenshot under the findings; a "Where to look" repo map; a note for Windows users without `make`; two more design decisions (browser-side analysis tested against dbt; orchestration as assets); license badge and section. Pipeline build times re-measured.
+- `LICENSE` (MIT, matching `pyproject.toml`).
+- Every finding re-verified on a fresh rebuild of the pinned snapshot (seed 42, through 2026-09-30). All numbers matched except the RFM segment counts, which led to the fix below.
+- `int_customers__rfm_scores`: `ntile()` now breaks ties on `canonical_customer_id`. Many customers tie on recency days and order counts, and without a tiebreak a tie could split into different quintiles between runs, so segment counts weren't reproducible. Two rebuilds now give identical segments: 184 Champions (59% of 12-month revenue), 78 At Risk ($2.4M); README updated.
+- Dashboard: gem-show chart labels shortened to "Tucson" / "Denver" (the full names overlapped on the 3-year axis); the ambiguous "Share of A-class SKUs" KPI renamed "Share of active A-class SKUs to reorder".
+- `docs/01_business_context.md`: the "assumptions unless Harsh confirms" marker now reads as planning assumptions for the simulation.
+
+**Acceptance checks**
+| Check | Result |
+|---|---|
+| Someone unfamiliar understands the problem, architecture and findings within 2 minutes | README opens with links, the two disclaimers, five at-a-glance bullets and a screenshot; the problem, five findings (each a number, a decision and its mart) and the architecture diagram follow |
+| 3-5 findings as business decisions, with numbers and their source | 5 findings, all recomputed from the marts on the pinned snapshot |
+| "Design decisions and trade-offs" and "If I had more time" sections | present (7 design decisions; future work points to `docs/06_future_ds_layer.md`) |
+| Badges, license | CI, deploy and MIT badges; `LICENSE` file |
+| No secrets, no large files | no keys, passphrases or account identifiers in any tracked file or in git history; no data or warehouse files tracked; largest file is `dashboard/package-lock.json` (655 KB) |
+| Links | every README link and image resolves (external links return 200) |
+| ruff, sqlfluff, pytest, dbt | clean; 67 tests pass; dbt PASS 267, WARN 4; 0 deprecations (full parse) |
+
+**Open for Harsh:** confirm the README's "As-is vs. ideal-state" left column, and decide whether the AI-workflow files (`CLAUDE.md`, `KICKOFF_PROMPT.md`, `docs/NEXT_SESSION.md`) stay in the public repo.
+
+**Status:** all roadmap phases (0-9, plus 6.5) are done. The data-science layer (`docs/06_future_ds_layer.md`) waits for Harsh's go-ahead.

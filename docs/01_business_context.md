@@ -22,7 +22,7 @@ A warehouse-centered platform with raw → staging → marts layers in dbt, auto
 
 **Craftstones USA** is a ~20-person wholesale distributor based in San Diego, CA. For the simulation, it imports *(assumption: product mix and sourcing countries)* polished stones, rough minerals, crystal clusters, tumbled stones, jewelry components, and decor/landscape stone from suppliers in India, Brazil, China, Madagascar, Mexico, Morocco and the US, and sells to retail shops, jewelry makers, interior designers, landscapers, and online resellers across the US.
 
-Characteristics that drive the simulated data *(assumptions unless Harsh confirms them)*:
+Characteristics that drive the simulated data *(planning assumptions for the simulation, not facts about the real company)*:
 
 - **~1,200 active SKUs**, highly skewed: a small share of SKUs drives most revenue (Pareto).
 - **Long, variable supplier lead times** (2 to 16 weeks), mostly ocean freight from overseas suppliers, priced in local currency.

@@ -44,7 +44,7 @@ Data as of <Value data={kpis} column=as_of_date fmt="mmm d, yyyy" />. The questi
 <BigValue data={kpis} value=dead_stock_value_usd title="Dead stock (no sale in 180 days)" fmt=usd0k />
 <BigValue data={kpis} value=dead_stock_share title="Dead stock, share of inventory" fmt=pct1 />
 <BigValue data={kpis} value=a_skus_to_reorder title="A-class SKUs at or below reorder point" />
-<BigValue data={kpis} value=a_skus_to_reorder_share title="Share of A-class SKUs" fmt=pct0 />
+<BigValue data={kpis} value=a_skus_to_reorder_share title="Share of active A-class SKUs to reorder" fmt=pct0 />
 
 ## Revenue and margin by month
 
@@ -69,11 +69,13 @@ order by 1, 2
     yAxisTitle=false
     title="Net revenue, gross margin, and revenue lost to stockouts"
 >
-    <ReferenceArea data={gem_shows} xMin=start_date xMax=end_date label=show_name color=info />
+    <ReferenceArea data={gem_shows} xMin=start_date xMax=end_date label=show_label color=info />
 </LineChart>
 
 ```sql gem_shows
-select * from marts.gem_shows
+-- Short labels ("Tucson", "Denver"): the full show names overlap on a 3-year axis.
+select start_date, end_date, split_part(show_name, ' ', 1) as show_label
+from marts.gem_shows
 ```
 
 Shaded bands are gem shows (Tucson in Jan-Feb, Denver in September). *Unfilled revenue* is demand that went unshipped because stock ran out: the cost of the simulated "gut feel" purchasing policy.

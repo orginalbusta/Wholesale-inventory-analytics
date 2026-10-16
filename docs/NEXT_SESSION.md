@@ -1,26 +1,24 @@
 # Next session: pick up here
 
-*Updated 2026-10-16 at the end of Phase 8. Read this first, then `CLAUDE.md`, `docs/PROGRESS.md` and `docs/DECISIONS.md` (newest entries at the top).*
+*Updated 2026-10-16 at the end of Phase 9. Read this first, then `CLAUDE.md`, `docs/PROGRESS.md` and `docs/DECISIONS.md` (newest entries at the top).*
 
 ## Where things stand
 
-- **Phases 0-8 are done.** Phase 8 ran the medium pipeline on Snowflake: dbt build passes and all 18 marts match DuckDB exactly. Phase 7 pinned the runners to `ubuntu-24.04`, made dbt failures readable in CI, and fixed the stale-cache errors after deploys (each deploy carries the previous deploy's hashed files). Phase 6.5 added the what-if reorder policy page and per-SKU drill-down pages (rendered in the browser via a 404.html SPA fallback). Phase 6 added Dagster orchestration (`make dagster`, 61 assets, dbt tests as asset checks, daily schedule off by default) and a Docker stack (`docker compose up`: webserver + daemon), checked by the `docker` job in `ci.yml`.
+- **All roadmap phases (0-9, plus 6.5) are done.** Phase 9 reworked the README for a 2-minute read, added the MIT license, and made RFM scoring deterministic. Earlier: Phase 8 ran the medium pipeline on Snowflake: dbt build passes and all 18 marts match DuckDB exactly. Phase 7 pinned the runners to `ubuntu-24.04`, made dbt failures readable in CI, and fixed the stale-cache errors after deploys (each deploy carries the previous deploy's hashed files). Phase 6.5 added the what-if reorder policy page and per-SKU drill-down pages (rendered in the browser via a 404.html SPA fallback). Phase 6 added Dagster orchestration (`make dagster`, 61 assets, dbt tests as asset checks, daily schedule off by default) and a Docker stack (`docker compose up`: webserver + daemon), checked by the `docker` job in `ci.yml`.
 - **Live:** dashboard https://orginalbusta.github.io/Wholesale-inventory-analytics/ · dbt docs https://orginalbusta.github.io/Wholesale-inventory-analytics/dbt-docs/ · repo https://github.com/orginalbusta/Wholesale-inventory-analytics
 - **CI** (`ci.yml`): `build` job (lint, pytest, small dbt build) and `docker` job, on every PR and push to main. **Deploy** (`deploy-pages.yml`) runs on push to main and nightly at 09:00 UTC: medium backfill + catch-up through yesterday → load → dbt build → docs → Evidence → Pages. Pages source is "GitHub Actions".
 - **Tests:** 67 pytest tests pass; full `dbt build` = PASS 267, WARN 4 (the planted data-quality issues being caught, by design), ERROR 0.
 
 ## Resume prompt (paste to start)
 
-> Read `docs/NEXT_SESSION.md`, then `CLAUDE.md`, `docs/PROGRESS.md` and the top of `docs/DECISIONS.md`. Then start Phase 9 from `docs/05_roadmap.md`.
+> Read `docs/NEXT_SESSION.md`, then `CLAUDE.md`, `docs/PROGRESS.md` and the top of `docs/DECISIONS.md`. The roadmap is complete; ask Harsh what's next (the data-science layer in `docs/06_future_ds_layer.md` needs his go-ahead).
 
-## Phase 9 plan (polish for hiring managers)
+## What's left
 
-From `docs/05_roadmap.md`. Accept when someone unfamiliar with the project understands the business problem, the architecture and the main findings within 2 minutes of opening the README.
-
-1. README final pass: 3-5 findings written as business decisions, each with its number and the mart it came from (numbers from the pinned medium snapshot, seed 42, through 2026-09-30; never invented). Point to the what-if page as the interactive version of the reorder finding.
-2. "Design decisions and trade-offs" and "If I had more time" sections (the latter points to `docs/06_future_ds_layer.md`).
-3. Repo hygiene: MIT `LICENSE` file (pyproject already says MIT), badges, no secrets, no large files, decide what to do with `KICKOFF_PROMPT.md` and `docs/NEXT_SESSION.md` in a public repo.
-4. Read the README cold, as a hiring manager would; tighten.
+1. Harsh's decisions: confirm the README "As-is vs. ideal-state" left column; decide whether `CLAUDE.md`, `KICKOFF_PROMPT.md` and this file stay in the public repo.
+2. Optional: exact Phase 8 credits and a Snowsight screenshot (see Snowflake notes below).
+3. Later, only with Harsh's go-ahead: the data-science layer (`docs/06_future_ds_layer.md`). The reorder mart already has `demand_source` for swapping in forecasts.
+4. Upkeep: the nightly deploy keeps the site current; GitHub disables scheduled workflows after 60 days without repo activity. The gem-show calendar seed covers shows through Sep 2028.
 
 ## Snowflake notes (Phase 8 is done)
 

@@ -64,9 +64,13 @@ scored as (
 
     select
         *,
-        ntile(5) over (order by coalesce(recency_days, 100000) desc) as recency_score,
-        ntile(5) over (order by frequency_12m) as frequency_score,
-        ntile(5) over (order by monetary_12m_usd) as monetary_score
+        -- canonical_customer_id breaks ties, so customers with equal values always land in
+        -- the same quintile (otherwise ntile's split of a tie can differ between runs).
+        ntile(5) over (
+            order by coalesce(recency_days, 100000) desc, canonical_customer_id
+        ) as recency_score,
+        ntile(5) over (order by frequency_12m, canonical_customer_id) as frequency_score,
+        ntile(5) over (order by monetary_12m_usd, canonical_customer_id) as monetary_score
 
     from metrics
 

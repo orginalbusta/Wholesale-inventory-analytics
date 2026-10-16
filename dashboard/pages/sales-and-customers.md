@@ -19,11 +19,13 @@ order by 1, 2
 ```
 
 ```sql gem_shows
-select * from marts.gem_shows
+-- Short labels ("Tucson", "Denver"): the full show names overlap on a 3-year axis.
+select start_date, end_date, split_part(show_name, ' ', 1) as show_label
+from marts.gem_shows
 ```
 
 <BarChart data={by_category} x=month_start_date y=net_revenue_usd series=category type=stacked yFmt=usd0k title="Net revenue by month and category">
-    <ReferenceArea data={gem_shows} xMin=start_date xMax=end_date label=show_name color=info />
+    <ReferenceArea data={gem_shows} xMin=start_date xMax=end_date label=show_label color=info />
 </BarChart>
 
 Jewelry components and crystal clusters peak before the holidays; decor and landscape stone peaks in spring; everything dips in July. Shaded bands are gem shows.
