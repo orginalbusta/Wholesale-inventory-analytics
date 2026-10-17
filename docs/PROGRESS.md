@@ -324,3 +324,8 @@ Dead stock, A-class SKUs below reorder point, A-class stockout days, supplier on
 
 **Added**
 - `docs/HOW_IT_WORKS.md`: a one-page, top-down overview for recruiters (pipeline layers, tools, skills, design decisions), linked from the top of the README.
+
+## SKU pages: real HTTP 200 (2026-10-16)
+
+- SKU drill-downs now live at `/sku/detail/?id=<SKU>`: one pre-built page (a real file, so GitHub Pages returns 200) that reads the id in the browser. The old `/sku/<SKU>/` route, its `404.html` fallback and `dashboard/svelte.config.js` were removed; every SKU link points to the new address.
+- Checked in the browser against a GitHub-Pages-style server: direct links return 200 and render the SKU with all 3 charts; clicking a table row opens the right SKU, and going back and clicking another row updates the page; no id shows "Pick a SKU"; an unknown or malformed id shows "SKU not found"; no console errors. The supplier scorecard now waits for its data instead of flashing empty cards.

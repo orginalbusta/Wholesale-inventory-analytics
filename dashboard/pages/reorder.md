@@ -40,7 +40,7 @@ select distinct supplier_id, supplier_name from marts.reorder_recommendations or
 ```sql reorder
 select
     sku,
-    '/sku/' || sku as sku_link,
+    '/sku/detail/?id=' || sku as sku_link,
     product_name,
     category,
     supplier_name,

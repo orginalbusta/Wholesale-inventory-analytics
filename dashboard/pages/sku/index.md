@@ -18,7 +18,7 @@ select
     is_active,
     is_dead_stock,
     on_hand_qty,
-    '/sku/' || sku as sku_link
+    '/sku/detail/?id=' || sku as sku_link
 from marts.inventory_health as h
 left join (select distinct supplier_id, supplier_name from marts.supplier_performance) using (supplier_id)
 order by sku

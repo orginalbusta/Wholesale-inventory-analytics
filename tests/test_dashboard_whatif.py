@@ -22,7 +22,7 @@ from generator.config import REPO_ROOT
 
 DASHBOARD = REPO_ROOT / "dashboard"
 WHAT_IF_PAGE = DASHBOARD / "pages" / "what-if.md"
-SKU_PAGE = DASHBOARD / "pages" / "sku" / "[sku].md"
+SKU_PAGE = DASHBOARD / "pages" / "sku" / "detail.md"
 SKU_INDEX = DASHBOARD / "pages" / "sku" / "index.md"
 
 
@@ -146,8 +146,7 @@ def test_every_linked_sku_page_has_data(dashboard_db):
     skus = dashboard_db.execute(to_test_schema(page_queries(SKU_INDEX)["skus"])).df()["sku"]
     detail_sql = to_test_schema(page_queries(SKU_PAGE)["sku_info"])
     rows_per_sku = {
-        len(dashboard_db.execute(detail_sql.replace("${params.sku}", sku)).fetchall())
-        for sku in skus
+        len(dashboard_db.execute(detail_sql.replace("${sku_id}", sku)).fetchall()) for sku in skus
     }
     assert len(skus) > 0
     assert rows_per_sku == {1}

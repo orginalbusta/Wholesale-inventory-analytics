@@ -1,5 +1,5 @@
-"""Preview the built dashboard the way GitHub Pages serves it: a missing path gets the site's
-404.html (with status 404), which is how the SKU drill-down pages load (see dashboard/svelte.config.js).
+"""Preview the built dashboard the way GitHub Pages serves it: under the repo's base path, and a
+missing path gets the site's 404.html if there is one (with status 404), or a plain 404.
 
     cp -r dashboard/build .preview/Wholesale-inventory-analytics
     uv run python scripts/serve_pages_preview.py .preview /Wholesale-inventory-analytics
@@ -21,7 +21,8 @@ class Handler(http.server.SimpleHTTPRequestHandler):
         if path.is_dir():
             path = path / "index.html"
         if not path.exists():
-            body = (ROOT / SITE.strip("/") / "404.html").read_bytes()
+            not_found = ROOT / SITE.strip("/") / "404.html"
+            body = not_found.read_bytes() if not_found.exists() else b"404 Not Found"
             self.send_response(404)
             self.send_header("Content-Type", "text/html")
             self.send_header("Content-Length", str(len(body)))

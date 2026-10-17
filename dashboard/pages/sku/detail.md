@@ -2,6 +2,17 @@
 title: SKU detail
 ---
 
+<script>
+    // The SKU comes from the address: /sku/detail/?id=AGT-DEC-0017. This page is built once,
+    // without an id, so it exists as a real file (HTTP 200). The id is read only after the page
+    // mounts in the browser; changing it then re-runs every query below (reading it earlier
+    // would reuse the empty results built ahead of time). Only letters, digits and dashes are kept.
+    // `$page` and `onMount` are already imported by Evidence's generated page code.
+    let mounted = false;
+    onMount(() => (mounted = true));
+    $: sku_id = mounted ? ($page.url.searchParams.get('id') ?? '').replace(/[^A-Za-z0-9-]/g, '') : '';
+</script>
+
 <Alert status="warning">
 <b>Synthetic data</b> · an ideal-state design, <b>not</b> the production system at Craftstones USA.
 </Alert>
@@ -64,10 +75,24 @@ from (
 ) as h
 left join marts.reorder_recommendations as r using (sku)
 left join marts.supplier_performance as s on h.supplier_id = s.supplier_id
-where h.sku = '${params.sku}'
+where h.sku = '${sku_id}'
 ```
 
-{#if sku_info.length > 0}
+{#if !mounted}
+
+Loading SKU...
+
+{:else if !sku_id}
+
+# Pick a SKU
+
+Open one from [all SKUs](/sku), or from the [reorder](/reorder), [inventory health](/inventory-health) or [what-if](/what-if) tables.
+
+{:else if !sku_info.dataLoaded}
+
+Loading {sku_id}...
+
+{:else if sku_info.length > 0}
 
 # {sku_info[0].sku}: {sku_info[0].product_name}
 
@@ -83,7 +108,7 @@ where h.sku = '${params.sku}'
 ```sql stock_history
 select date_day, on_hand_qty
 from marts.sku_inventory_daily
-where sku = '${params.sku}'
+where sku = '${sku_id}'
 order by date_day
 ```
 
@@ -95,11 +120,11 @@ order by date_day
 ```sql demand_weekly
 select week_start_date, 'Fulfilled' as demand_type, fulfilled_qty as qty
 from marts.sku_demand_weekly
-where sku = '${params.sku}'
+where sku = '${sku_id}'
 union all
 select week_start_date, 'Lost to stockouts' as demand_type, unfilled_qty as qty
 from marts.sku_demand_weekly
-where sku = '${params.sku}'
+where sku = '${sku_id}'
 order by week_start_date, demand_type
 ```
 
@@ -108,7 +133,7 @@ order by week_start_date, demand_type
 ```sql stockouts
 select month_start_date, stockout_days, unfilled_qty, unfilled_revenue_estimate_usd
 from marts.stockouts
-where sku = '${params.sku}'
+where sku = '${sku_id}'
     and month_start_date > (select max(month_start_date) from marts.stockouts) - interval 12 month
 order by month_start_date
 ```
@@ -135,7 +160,7 @@ select
     actual_lead_time_days,
     days_late
 from marts.sku_purchase_orders
-where sku = '${params.sku}'
+where sku = '${sku_id}'
 order by order_date desc
 ```
 
@@ -170,13 +195,21 @@ select
     fill_rate,
     po_count
 from marts.supplier_performance
-where supplier_id = (select supplier_id from marts.inventory_health where sku = '${params.sku}')
+where supplier_id = (select supplier_id from marts.inventory_health where sku = '${sku_id}')
 ```
+
+{#if supplier.dataLoaded && supplier.length > 0}
 
 <BigValue data={supplier} value=on_time_rate title="On-time rate" fmt=pct0 />
 <BigValue data={supplier} value=lead_time_mean_days title="Mean lead time (days)" fmt=num1 />
 <BigValue data={supplier} value=quoted_vs_actual_gap_days title="Actual minus quoted (days)" fmt=num1 />
 <BigValue data={supplier} value=fill_rate title="Fill rate" fmt=pct0 />
+
+{:else}
+
+Loading the supplier scorecard...
+
+{/if}
 
 [All SKUs](/sku) · [Reorder recommendations](/reorder) · [What-if reorder policy](/what-if) · [Suppliers](/suppliers)
 
@@ -184,6 +217,6 @@ where supplier_id = (select supplier_id from marts.inventory_health where sku = 
 
 # SKU not found
 
-No SKU called **{params.sku}**. See [all SKUs](/sku).
+No SKU called **{sku_id}**. See [all SKUs](/sku).
 
 {/if}

@@ -31,7 +31,7 @@ Dead stock = stock on hand with no sale in the last 180 days: cash tied up on th
 ```sql dead_stock
 select
     sku,
-    '/sku/' || sku as sku_link,
+    '/sku/detail/?id=' || sku as sku_link,
     product_name,
     category,
     on_hand_qty,

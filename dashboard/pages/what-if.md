@@ -133,7 +133,7 @@ select
             then ceil(greatest(scenario_raw_order_qty, 0) / case_pack_qty) * case_pack_qty
         else 0
     end as scenario_suggested_order_qty,
-    '/sku/' || sku as sku_link
+    '/sku/detail/?id=' || sku as sku_link
 from scenario
 ```
 
