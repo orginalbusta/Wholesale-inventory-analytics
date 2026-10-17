@@ -4,7 +4,7 @@
 
 This project is an **ideal-state redesign** of the data platform for **Craftstones USA**, based on Harsh's experience as its sole data analyst (Sep 2023 to Apr 2026). **All data is synthetic**, and the architecture is a proposed design, **not** the system in use at Craftstones.
 
-> **Harsh: review this section.** Details below marked *(assumption)* were written to make the simulation interesting. Correct them to match reality at a level you're comfortable sharing publicly, or keep them as clearly labeled simulation assumptions. Don't add anything confidential.
+> Details marked *(assumption)* were written to make the simulation interesting. They are simulation assumptions, not facts about the real company, and nothing here is confidential.
 
 ## As-is (what existed, from Harsh's resume)
 

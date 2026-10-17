@@ -28,9 +28,9 @@ select service_level, service_level_label from marts.service_levels order by ser
 
 Lead-time buffer: days added to every supplier's mean lead time. Review period: days of demand each order covers beyond the reorder point.
 
-<Slider name=lead_time_buffer title="Lead-time buffer (days)" min=0 max=30 step=1 defaultValue=0 size=large />
+<Slider name=lead_time_buffer title="Lead-time buffer (days)" min=0 max=30 step=1 defaultValue=0 />
 
-<Slider name=review_period title="Review period (days)" min=7 max=60 step=1 defaultValue=14 size=large />
+<Slider name=review_period title="Review period (days)" min=7 max=60 step=1 defaultValue=14 />
 
 ```sql whatif
 -- Same formulas as mart_reorder_recommendations, with the policy inputs above:

@@ -1,6 +1,6 @@
 # 06: Future data science layer (NOT IN CURRENT SCOPE)
 
-Do not build any of this until Harsh explicitly asks. It is listed so the current design doesn't block it.
+Not built yet. It is listed so the current design doesn't block it.
 
 ## Planned additions
 

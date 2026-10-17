@@ -329,3 +329,14 @@ Dead stock, A-class SKUs below reorder point, A-class stockout days, supplier on
 
 - SKU drill-downs now live at `/sku/detail/?id=<SKU>`: one pre-built page (a real file, so GitHub Pages returns 200) that reads the id in the browser. The old `/sku/<SKU>/` route, its `404.html` fallback and `dashboard/svelte.config.js` were removed; every SKU link points to the new address.
 - Checked in the browser against a GitHub-Pages-style server: direct links return 200 and render the SKU with all 3 charts; clicking a table row opens the right SKU, and going back and clicking another row updates the page; no id shows "Pick a SKU"; an unknown or malformed id shows "SKU not found"; no console errors. The supplier scorecard now waits for its data instead of flashing empty cards.
+
+## Final review (2026-10-17)
+
+**Checked**
+- Every workflow run green (the only failure is the deliberately broken test PR from Phase 7); last night's scheduled deploy succeeded.
+- All 10 public URLs return 200 (8 dashboard pages incl. a SKU page, dbt docs, data manifest). Headless audit at 1400px and 390px: every chart renders, no console errors on dashboard pages, no real sideways scrolling. The dbt docs log one 404 for a literal `{{ getIcon(...) }}` image path, a glitch in dbt's own docs template.
+- 67 pytest tests, ruff, dbt full parse with 0 deprecations, strict dashboard build.
+
+**Fixed**
+- What-if sliders used the "large" size, which cut off their maximum labels on phones; now the default size.
+- Documentation brought in line with the build: `docs/02_architecture.md` (intermediate models are tables, FRED is fetched directly, append-only loads, decided BI tool, cross-warehouse approach, current repo layout, deploy and CI lines), the dashboard README's page list, links from the dbt docs landing page back to the repo and the live site, and neutral wording in the planning docs where they addressed a person directly. New `docs/README.md` explains what each document is.

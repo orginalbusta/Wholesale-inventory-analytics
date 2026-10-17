@@ -4,7 +4,9 @@ A static [Evidence](https://evidence.dev) site that reads **only** the dbt `mart
 DuckDB warehouse (`../warehouse/craftstones.duckdb`). Every page carries the disclaimer: synthetic
 data, an ideal-state design, not the production system at Craftstones.
 
-Pages: Overview (`pages/index.md`), Reorder, Inventory health, Suppliers, Sales & customers.
+Pages: Overview (`pages/index.md`), Reorder, Inventory health, Suppliers, Sales & customers,
+What-if reorder policy (`pages/what-if.md`, recalculates the reorder policy in the browser), All SKUs
+(`pages/sku/index.md`) and one SKU detail page (`pages/sku/detail.md`, at `/sku/detail/?id=<SKU>`).
 Source queries live in `sources/marts/*.sql`; the dbt exposure `inventory_dashboard` lists the
 marts they depend on.
 

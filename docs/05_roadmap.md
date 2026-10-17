@@ -1,6 +1,8 @@
 # 05: Roadmap (build phase by phase)
 
-Each phase ends with: acceptance checks pass → update `docs/PROGRESS.md` → commit → stop and report to Harsh.
+*The build plan, written before the build. Every phase is done; results are in [PROGRESS.md](PROGRESS.md), deviations in [DECISIONS.md](DECISIONS.md).*
+
+Each phase ends with: acceptance checks pass → update `docs/PROGRESS.md` → commit → stop for review.
 
 **Minimum shippable version = Phases 0–5.** That is the version worth linking on a resume. Phases 6–9 make it stronger. Target: Phases 0–5 in about 2 weeks of part-time work.
 
@@ -52,11 +54,11 @@ Each phase ends with: acceptance checks pass → update `docs/PROGRESS.md` → c
   5. **Sales and customers**: monthly trend by category with show windows shaded, RFM segments
 - GitHub Actions workflow `deploy-pages.yml` (finish the Evidence build step, then add the push trigger): on push to main → generate `medium` data → load → dbt build → build Evidence site + `dbt docs generate` → publish both to GitHub Pages (`/` dashboard, `/dbt-docs/` docs).
 - README v1: real findings from the data (no invented numbers), architecture diagram (Mermaid), stack table, how to run.
-- **Nightly refresh:** a scheduled workflow (cron) that restores the previous run's generator state, runs `simulate-day → load → dbt build`, and redeploys, so the live site shows an advancing "data as of" date. Free on a public repo. (Agreed with Harsh 2026-10-14; see DECISIONS.md.)
+- **Nightly refresh:** a scheduled workflow (cron) that restores the previous run's generator state, runs `simulate-day → load → dbt build`, and redeploys, so the live site shows an advancing "data as of" date. Free on a public repo. (As built, the nightly job rebuilds from scratch instead of restoring state; see DECISIONS.md.)
 
 **Accept when:** both sites are live at public URLs; README links work; README contains no `<<FILL` placeholders.
 
-> Decision point for Harsh: Evidence vs. Tableau Public. Evidence is code-reviewable and auto-deploys; Tableau Public reuses an existing resume skill. Default to Evidence unless he says otherwise.
+> Decided: Evidence over Tableau Public. Evidence is code-reviewable and auto-deploys; Tableau Public would have reused an existing resume skill.
 
 ## Phase 6: Orchestration (Dagster) and Docker
 - `orchestration/craftstones_dagster/`: assets for `simulate_day` → `erp_load` / `fred_load` → dbt assets (via `dagster-dbt`, from the dbt manifest) → source freshness check. Daily schedule (off by default), asset checks wired from dbt tests.
@@ -104,5 +106,5 @@ Added 2026-10-15 at Harsh's request (see DECISIONS.md). Numbered 6.5 so the late
 
 ---
 
-## Later (do not start without Harsh's go-ahead)
+## Later (not started)
 See `06_future_ds_layer.md`.
